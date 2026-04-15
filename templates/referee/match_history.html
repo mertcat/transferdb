@@ -38,6 +38,11 @@
                 {% else %}
                 <span class="chip chip-sched">Upcoming</span>
                 {% endif %}
+            {% else %}
+                <a href="/referee/submit_result/{{ m.match_id }}"
+                   class="btn btn-secondary" style="padding:3px 10px; font-size:12px;">
+                    Edit Stats
+                </a>
             {% endif %}
         </td>
     </tr>

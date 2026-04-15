@@ -43,8 +43,15 @@
 </div>
 {% endif %}
 
-{% if lineup %}
 <h2>Player Stats</h2>
+{% if not lineup %}
+<div class="card">
+    <p style="color:var(--muted);">
+        No squad has been submitted for this match yet. The manager of each
+        club must submit a squad before per-player stats can be recorded.
+    </p>
+</div>
+{% else %}
 <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">
     Values are pre-filled from the database. Update and save each player individually.
 </p>

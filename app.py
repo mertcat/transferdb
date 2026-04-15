@@ -1175,13 +1175,14 @@ def referee_submit_result(match_id):
             cur.callproc("submit_match_result",
                          [match_id, pid, home_goals, away_goals, attendance])
             db.commit()
-            flash("Match result submitted.", "success")
+            flash("Score saved. Now enter each player's stats below.", "success")
         except mysql.connector.Error as err:
             db.rollback()
             flash(f"Could not submit result: {friendly_error(err)}", "danger")
         finally:
             cur.close()
-        return redirect(url_for("referee_match_history"))
+        # Stay on the same page so referee can fill in per-player stats
+        return redirect(url_for("referee_submit_result", match_id=match_id))
 
     # GET – load lineup for stat input
     cur = db.cursor(dictionary=True)

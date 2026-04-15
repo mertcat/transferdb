@@ -79,10 +79,14 @@ BEGIN
             SET MESSAGE_TEXT = 'Transfer error: Free transfers must have fee = 0.';
     END IF;
 
-    -- If Permanent transfer: terminate existing Permanent contract for this player
+    -- If Permanent transfer: terminate existing Permanent contract for this player.
+    -- Spec §9: "updating its end_date to the new start_date". The active-contract
+    -- check uses an inclusive BETWEEN, so we set end_date one day before the new
+    -- start to guarantee the old permanent is no longer counted as active and the
+    -- trg_contract_rules trigger will accept the new Permanent insert.
     IF p_transfer_type IN ('Free','Purchase') THEN
         UPDATE Contract
-        SET end_date = v_today
+        SET end_date = v_today - INTERVAL 1 DAY
         WHERE player_id     = p_player_id
           AND contract_type = 'Permanent'
           AND CURDATE() BETWEEN start_date AND end_date;
