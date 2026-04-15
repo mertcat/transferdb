@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %} – Match History{% endblock %}
+{% block content %}
+<h1>Match History</h1>
+<div class="card">
+<table>
+    <thead>
+        <tr>
+            <th>Date</th><th>Competition</th><th>Opponent</th><th>Result</th>
+            <th>Pos</th><th>Min</th><th>G</th><th>A</th><th>YC</th><th>RC</th><th>Rating</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for m in matches %}
+    <tr>
+        <td>{{ m.match_datetime.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ m.competition }}</td>
+        <td>{{ m.opponent }}</td>
+        <td>
+            {% if m.is_completed %}
+                {{ m.home_goals }}–{{ m.away_goals }}
+            {% else %}
+                <span class="chip chip-sched">Scheduled</span>
+            {% endif %}
+        </td>
+        <td>{{ m.position_in_match }}</td>
+        <td>{{ m.minutes_played }}'</td>
+        <td>{{ m.goals }}</td>
+        <td>{{ m.assists }}</td>
+        <td>{{ m.yellow_cards }}</td>
+        <td>{{ m.red_cards }}</td>
+        <td>{{ m.rating }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

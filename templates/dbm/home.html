@@ -1,0 +1,23 @@
+<!-- templates/dbm/home.html -->
+{% extends "base.html" %}
+{% block title %} – DB Manager{% endblock %}
+{% block content %}
+<h1>Database Manager Panel</h1>
+<div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:14px;">
+    {% set links = [
+        ('/dbm/stadiums','🏟 Stadiums','View &amp; rename stadiums'),
+        ('/dbm/schedule_match','📅 Schedule Match','Add new match'),
+        ('/dbm/transfer','🔄 Transfer','Register a transfer'),
+        ('/dbm/competition/create','🏆 Competition','Create new competition'),
+        ('/dbm/assign_manager','👤 Assign Manager','Club manager assignment'),
+    ] %}
+    {% for href, title, desc in links %}
+    <a href="{{ href }}" style="text-decoration:none;">
+        <div class="card" style="cursor:pointer; transition:border-color .15s;" onmouseover="this.style.borderColor='#1f6feb'" onmouseout="this.style.borderColor='#30363d'">
+            <div style="font-size:22px; margin-bottom:8px;">{{ title }}</div>
+            <div style="color:var(--muted); font-size:13px;">{{ desc }}</div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}

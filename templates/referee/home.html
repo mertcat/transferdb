@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %} – Referee Dashboard{% endblock %}
+{% block content %}
+<h1>Referee Dashboard</h1>
+{% if profile %}
+<div class="card">
+    <div class="profile-grid">
+        <div class="profile-item"><div class="k">Name</div><div class="v">{{ profile.name }} {{ profile.surname }}</div></div>
+        <div class="profile-item"><div class="k">Age</div><div class="v">{{ profile.age }}</div></div>
+        <div class="profile-item"><div class="k">Nationality</div><div class="v">{{ profile.nationality }}</div></div>
+        <div class="profile-item"><div class="k">License Level</div><div class="v">{{ profile.license_level }}</div></div>
+        <div class="profile-item"><div class="k">Years of Experience</div><div class="v">{{ profile.years_of_experience }}</div></div>
+    </div>
+</div>
+{% endif %}
+
+{% if stats %}
+<div class="stat-grid">
+    <div class="stat-box"><div class="val">{{ stats.total_matches or 0 }}</div><div class="lbl">Matches Officiated</div></div>
+    <div class="stat-box"><div class="val">{{ stats.total_yellows or 0 }}</div><div class="lbl">Yellow Cards</div></div>
+    <div class="stat-box"><div class="val">{{ stats.total_reds or 0 }}</div><div class="lbl">Red Cards</div></div>
+</div>
+{% endif %}
+
+<a href="/referee/match_history" class="btn btn-secondary">Match History</a>
+{% endblock %}

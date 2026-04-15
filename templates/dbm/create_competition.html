@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %} – Create Competition{% endblock %}
+{% block content %}
+<h1>Create Competition</h1>
+<div class="card" style="max-width:500px;">
+    <form method="POST">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Competition Name</label>
+                <input type="text" name="name" required placeholder="e.g. Premier League">
+            </div>
+            <div class="form-group">
+                <label>Season</label>
+                <input type="text" name="season" required placeholder="e.g. 2025/2026">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Country</label>
+                <input type="text" name="country" required>
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select name="competition_type" required>
+                    <option value="League">League</option>
+                    <option value="Cup">Cup</option>
+                    <option value="International">International</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Create</button>
+    </form>
+</div>
+{% endblock %}

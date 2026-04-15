@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %} – Match History{% endblock %}
+{% block content %}
+<h1>My Match History</h1>
+<div class="card">
+<table>
+    <thead>
+        <tr>
+            <th>Date &amp; Time</th><th>Competition</th><th>Home</th><th>Away</th>
+            <th>Stadium</th><th>Attendance</th><th>Score</th><th>YC</th><th>RC</th><th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for m in matches %}
+    <tr>
+        <td>{{ m.match_datetime.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ m.competition }}</td>
+        <td>{{ m.home_club }}</td>
+        <td>{{ m.away_club }}</td>
+        <td style="color:var(--muted);">{{ m.stadium_name }}</td>
+        <td>{{ m.attendance if m.attendance else '—' }}</td>
+        <td>
+            {% if m.is_completed %}
+                {{ m.home_goals }}–{{ m.away_goals }}
+            {% else %}
+                <span class="chip chip-sched">Scheduled</span>
+            {% endif %}
+        </td>
+        <td>{{ m.yellows or 0 }}</td>
+        <td>{{ m.reds or 0 }}</td>
+        <td>
+            {% if not m.is_completed %}
+                {% if m.is_past %}
+                <a href="/referee/submit_result/{{ m.match_id }}"
+                   class="btn btn-primary" style="padding:3px 10px; font-size:12px;">
+                    Submit Result
+                </a>
+                {% else %}
+                <span class="chip chip-sched">Upcoming</span>
+                {% endif %}
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

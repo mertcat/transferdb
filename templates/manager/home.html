@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %} – Manager Profile{% endblock %}
+{% block content %}
+<h1>Manager Dashboard</h1>
+{% if profile %}
+<div class="card">
+    <div class="profile-grid">
+        <div class="profile-item"><div class="k">Name</div><div class="v">{{ profile.name }} {{ profile.surname }}</div></div>
+        <div class="profile-item"><div class="k">Age</div><div class="v">{{ profile.age }}</div></div>
+        <div class="profile-item"><div class="k">Nationality</div><div class="v">{{ profile.nationality }}</div></div>
+        <div class="profile-item"><div class="k">Current Club</div><div class="v">{{ profile.current_club or 'Unassigned' }}</div></div>
+        <div class="profile-item"><div class="k">Formation</div><div class="v">{{ profile.preferred_formation }}</div></div>
+        <div class="profile-item"><div class="k">Experience</div><div class="v">{{ profile.experience_level }}</div></div>
+    </div>
+</div>
+{% endif %}
+<div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <a href="/manager/fixtures"   class="btn btn-secondary">Fixtures &amp; Results</a>
+    <a href="/manager/standings"  class="btn btn-secondary">League Standings</a>
+    <a href="/manager/leaderboard" class="btn btn-secondary">Competition Leaderboard</a>
+</div>
+{% endblock %}

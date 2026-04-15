@@ -1,0 +1,9 @@
+# Önce Tablolar
+mysql -h 127.0.0.1 -u transferdb_user -p0000 transferdb < sql/01_schema.sql
+
+# Sonra Triggerlar (Hata verirse tam satırı görebiliriz)
+mysql -h 127.0.0.1 -u transferdb_user -p0000 transferdb < sql/02_triggers.sql
+
+# En son Prosedürler
+mysql -h 127.0.0.1 -u root -p transferdb < sql/03_procedures.sql
+mysql -h 127.0.0.1 -u transferdb_user -p0000 transferdb -e "source sql/01_schema.sql; source sql/02_triggers.sql; source sql/03_procedures.sql;"

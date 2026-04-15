@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %} – Register Transfer{% endblock %}
+{% block content %}
+<h1>Register Transfer &amp; Contract</h1>
+<div class="card" style="max-width:600px;">
+    <form method="POST">
+        <div class="form-group">
+            <label>Player</label>
+            <select name="player_id" id="playerSelect" required onchange="onPlayerChange(this.value)">
+                <option value="">Select player…</option>
+                {% for p in players %}
+                <option value="{{ p.person_id }}">{{ p.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>From Club</label>
+                <div id="fromClubDisplay" style="padding:8px 10px; background:var(--surface2,#21262d);
+                     border:1px solid var(--border,#30363d); border-radius:6px;
+                     color:var(--muted); font-size:14px; min-height:36px;">
+                    Select a player first…
+                </div>
+            </div>
+            <div class="form-group">
+                <label>To Club</label>
+                <select name="to_club_id" required>
+                    <option value="">Select club…</option>
+                    {% for c in clubs %}
+                    <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Transfer Type</label>
+                <select name="transfer_type" required onchange="updateFeeField(this.value)">
+                    <option value="Free">Free</option>
+                    <option value="Purchase">Purchase</option>
+                    <option value="Loan">Loan</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Transfer Fee (€)</label>
+                <input type="number" name="transfer_fee" id="feeInput" value="0" min="0" step="0.01">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Weekly Wage (€)</label>
+                <input type="number" name="weekly_wage" required min="1" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Contract End Date</label>
+                <input type="date" name="contract_end" required>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Register Transfer</button>
+    </form>
+</div>
+<script>
+const playerClubs = {{ player_clubs | tojson }};
+
+function onPlayerChange(pid) {
+    const display = document.getElementById('fromClubDisplay');
+    if (!pid) {
+        display.textContent  = 'Select a player first…';
+        display.style.color  = 'var(--muted)';
+        return;
+    }
+    const club = playerClubs[pid];
+    if (club) {
+        display.textContent = club.club_name;
+        display.style.color = 'var(--text, #e6edf3)';
+    } else {
+        display.textContent = 'No active contract (free agent → NULL)';
+        display.style.color = '#f85149';
+    }
+}
+
+function updateFeeField(type) {
+    const feeInput = document.getElementById('feeInput');
+    if (type === 'Free') { feeInput.value = '0'; feeInput.disabled = true; }
+    else                 { feeInput.disabled = false; }
+}
+updateFeeField('Free');
+</script>
+{% endblock %}

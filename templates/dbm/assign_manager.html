@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %} – Assign Manager{% endblock %}
+{% block content %}
+<h1>Assign Manager to Club</h1>
+<div class="card" style="max-width:460px;">
+    <form method="POST">
+        <div class="form-group">
+            <label>Club</label>
+            <select name="club_id" required>
+                <option value="">Select club…</option>
+                {% for c in clubs %}
+                <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Manager</label>
+            <select name="manager_id" required>
+                <option value="">Select manager…</option>
+                {% for m in managers %}
+                <option value="{{ m.person_id }}">{{ m.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Assign</button>
+    </form>
+</div>
+{% endblock %}

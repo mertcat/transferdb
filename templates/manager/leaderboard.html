@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %} – Leaderboard{% endblock %}
+{% block content %}
+<h1>Competition Leaderboard</h1>
+
+<div class="card" style="margin-bottom:20px;">
+    <form method="GET" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0; min-width:240px;">
+            <label>Competition</label>
+            <select name="competition_id">
+                <option value="">Select…</option>
+                {% for c in competitions %}
+                <option value="{{ c.competition_id }}"
+                    {% if c.competition_id|string == selected_comp %}selected{% endif %}>
+                    {{ c.name }} ({{ c.season }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0; min-width:200px;">
+            <label>Category</label>
+            <select name="category">
+                <option value="goals"   {% if category=='goals' %}selected{% endif %}>Top Goal Scorers</option>
+                <option value="assists" {% if category=='assists' %}selected{% endif %}>Top Assist Providers</option>
+                <option value="rating"  {% if category=='rating' %}selected{% endif %}>Highest Avg Rating (3+ matches)</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">View</button>
+    </form>
+</div>
+
+{% if leaders %}
+<div class="card">
+<table>
+    <thead>
+        <tr><th>#</th><th>Player</th><th>Club</th><th>Matches</th>
+            <th>{{ 'Goals' if category=='goals' else ('Assists' if category=='assists' else 'Avg Rating') }}</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in leaders %}
+    <tr>
+        <td style="color:var(--muted);">{{ loop.index }}</td>
+        <td style="font-weight:600;">{{ row.player_name }}</td>
+        <td style="color:var(--muted);">{{ row.club_name or '—' }}</td>
+        <td>{{ row.matches_played }}</td>
+        <td style="font-weight:700; color:#fff;">{{ row.metric }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %} – League Standings{% endblock %}
+{% block content %}
+<h1>League Standings</h1>
+
+<div class="card" style="margin-bottom:20px;">
+    <form method="GET" style="display:flex; gap:10px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; min-width:260px;">
+            <label>Competition</label>
+            <select name="competition_id" required>
+                <option value="">Select competition…</option>
+                {% for c in competitions %}
+                <option value="{{ c.competition_id }}"
+                    {% if c.competition_id|string == selected_comp %}selected{% endif %}>
+                    {{ c.name }} ({{ c.season }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">View</button>
+    </form>
+</div>
+
+{% if standings %}
+<div class="card">
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th>
+            <th>GF</th><th>GA</th><th>GD</th><th>Pts</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in standings %}
+    <tr>
+        <td style="color:var(--muted);">{{ loop.index }}</td>
+        <td style="font-weight:600;">{{ row.club_name }}</td>
+        <td>{{ row.played }}</td>
+        <td style="color:#7ee787;">{{ row.wins }}</td>
+        <td style="color:var(--muted);">{{ row.draws }}</td>
+        <td style="color:#ffa198;">{{ row.losses }}</td>
+        <td>{{ row.gf }}</td>
+        <td>{{ row.ga }}</td>
+        <td>{{ '+' if row.gd > 0 else '' }}{{ row.gd }}</td>
+        <td style="font-weight:700; color:#fff;">{{ row.points }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

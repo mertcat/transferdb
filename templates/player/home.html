@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %} – Player Profile{% endblock %}
+{% block content %}
+<h1>My Profile</h1>
+{% if profile %}
+<div class="card">
+    <div class="profile-grid">
+        <div class="profile-item"><div class="k">Name</div><div class="v">{{ profile.name }} {{ profile.surname }}</div></div>
+        <div class="profile-item"><div class="k">Age</div><div class="v">{{ profile.age }}</div></div>
+        <div class="profile-item"><div class="k">Nationality</div><div class="v">{{ profile.nationality }}</div></div>
+        <div class="profile-item"><div class="k">Current Club</div><div class="v">{{ profile.current_club or 'Free Agent' }}</div></div>
+        <div class="profile-item"><div class="k">Position</div><div class="v">{{ profile.main_position }}</div></div>
+        <div class="profile-item"><div class="k">Strong Foot</div><div class="v">{{ profile.strong_foot }}</div></div>
+        <div class="profile-item"><div class="k">Height</div><div class="v">{{ profile.height }} cm</div></div>
+        <div class="profile-item"><div class="k">Market Value</div><div class="v">€{{ '{:,.0f}'.format(profile.market_value) }}</div></div>
+    </div>
+</div>
+{% endif %}
+<div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <a href="/player/stats" class="btn btn-secondary">Performance Stats</a>
+    <a href="/player/match_history" class="btn btn-secondary">Match History</a>
+    <a href="/player/career_history" class="btn btn-secondary">Career &amp; Contracts</a>
+</div>
+{% endblock %}

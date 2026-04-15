@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %} – Schedule Match{% endblock %}
+{% block content %}
+<h1>Schedule a Match</h1>
+<div class="card" style="max-width:600px;">
+    <form method="POST">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Date &amp; Time</label>
+                <input type="datetime-local" name="match_datetime" required>
+            </div>
+            <div class="form-group">
+                <label>Stadium</label>
+                <select name="stadium_id" required>
+                    <option value="">Select stadium…</option>
+                    {% for s in stadiums %}
+                    <option value="{{ s.stadium_id }}">{{ s.stadium_name }} ({{ s.city }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Home Club</label>
+                <select name="home_club_id" required>
+                    <option value="">Select club…</option>
+                    {% for c in clubs %}
+                    <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Away Club</label>
+                <select name="away_club_id" required>
+                    <option value="">Select club…</option>
+                    {% for c in clubs %}
+                    <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Referee</label>
+                <select name="referee_id" required>
+                    <option value="">Select referee…</option>
+                    {% for r in referees %}
+                    <option value="{{ r.referee_id }}">{{ r.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Competition</label>
+                <select name="competition_id" required>
+                    <option value="">Select competition…</option>
+                    {% for comp in competitions %}
+                    <option value="{{ comp.competition_id }}">{{ comp.name }} ({{ comp.season }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Schedule Match</button>
+    </form>
+</div>
+{% endblock %}

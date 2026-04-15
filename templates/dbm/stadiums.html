@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %} – Stadiums{% endblock %}
+{% block content %}
+<h1>Stadiums</h1>
+<div class="card">
+<table>
+    <thead>
+        <tr><th>Name</th><th>City</th><th>Capacity</th><th>Home Club(s)</th><th>Rename</th></tr>
+    </thead>
+    <tbody>
+    {% for s in stadiums %}
+    <tr>
+        <td>{{ s.stadium_name }}</td>
+        <td>{{ s.city }}</td>
+        <td>{{ '{:,}'.format(s.capacity) }}</td>
+        <td style="color:var(--muted);">{{ s.clubs or '—' }}</td>
+        <td>
+            <form method="POST" action="/dbm/stadiums/rename" style="display:flex; gap:6px;">
+                <input type="hidden" name="stadium_id" value="{{ s.stadium_id }}">
+                <input type="text" name="new_name" placeholder="New name" style="width:160px; padding:4px 8px;">
+                <button type="submit" class="btn btn-secondary" style="padding:4px 10px;">Rename</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

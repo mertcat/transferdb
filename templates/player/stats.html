@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %} – My Stats{% endblock %}
+{% block content %}
+<h1>Performance Statistics</h1>
+
+<div class="card" style="margin-bottom:20px;">
+    <form method="GET" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0; min-width:150px;">
+            <label>Season</label>
+            <select name="season">
+                <option value="">All Seasons</option>
+                {% for s in seasons %}
+                <option value="{{ s }}" {% if s == selected_season %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0; min-width:200px;">
+            <label>Competition</label>
+            <select name="competition_id">
+                <option value="">All Competitions</option>
+                {% for c in competitions %}
+                <option value="{{ c.competition_id }}" {% if c.competition_id|string == selected_comp %}selected{% endif %}>
+                    {{ c.name }} ({{ c.season }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="/player/stats" class="btn btn-secondary">Reset</a>
+    </form>
+</div>
+
+{% if stats %}
+<div class="stat-grid">
+    <div class="stat-box"><div class="val">{{ stats.games_played or 0 }}</div><div class="lbl">Games</div></div>
+    <div class="stat-box"><div class="val">{{ stats.total_goals or 0 }}</div><div class="lbl">Goals</div></div>
+    <div class="stat-box"><div class="val">{{ stats.total_assists or 0 }}</div><div class="lbl">Assists</div></div>
+    <div class="stat-box"><div class="val">{{ stats.yellow_cards or 0 }}</div><div class="lbl">Yellow Cards</div></div>
+    <div class="stat-box"><div class="val">{{ stats.red_cards or 0 }}</div><div class="lbl">Red Cards</div></div>
+    <div class="stat-box"><div class="val">{{ stats.avg_rating or '—' }}</div><div class="lbl">Avg Rating</div></div>
+</div>
+{% endif %}
+{% endblock %}

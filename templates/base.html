@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TransferDB{% block title %}{% endblock %}</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:      #0d1117;
+            --surface: #161b22;
+            --border:  #30363d;
+            --accent:  #2ea043;
+            --accent2: #1f6feb;
+            --text:    #c9d1d9;
+            --muted:   #8b949e;
+            --danger:  #f85149;
+            --warn:    #d29922;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            min-height: 100vh;
+        }
+
+        /* NAV */
+        nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            height: 56px;
+            gap: 24px;
+        }
+        nav .brand {
+            font-weight: 700;
+            font-size: 16px;
+            color: #fff;
+            text-decoration: none;
+            letter-spacing: .5px;
+        }
+        nav .brand span { color: var(--accent); }
+        nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 13px;
+            transition: color .15s;
+        }
+        nav a:hover { color: var(--text); }
+        nav .spacer { flex: 1; }
+        nav .role-badge {
+            background: #21262d;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        /* LAYOUT */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        h1 { font-size: 22px; font-weight: 700; margin-bottom: 20px; color: #fff; }
+        h2 { font-size: 16px; font-weight: 600; margin-bottom: 14px; color: #e6edf3; }
+
+        /* CARD */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+
+        /* ALERTS */
+        .alert {
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            border-left: 3px solid;
+        }
+        .alert-danger  { background: #2d1519; border-color: var(--danger); color: #ffa198; }
+        .alert-success { background: #0f2a1a; border-color: var(--accent); color: #7ee787; }
+        .alert-warning { background: #2b1d09; border-color: var(--warn);   color: #e3b341; }
+
+        /* FORMS */
+        .form-group { margin-bottom: 14px; }
+        label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+        input, select, textarea {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text);
+            font-size: 14px;
+            transition: border-color .15s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent2);
+        }
+
+        /* BUTTONS */
+        .btn {
+            display: inline-block;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            text-decoration: none;
+            transition: opacity .15s;
+        }
+        .btn:hover { opacity: .85; }
+        .btn-primary  { background: var(--accent);  color: #fff; }
+        .btn-secondary{ background: #21262d; border-color: var(--border); color: var(--text); }
+        .btn-danger   { background: var(--danger);  color: #fff; }
+
+        /* TABLES */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left;
+            padding: 8px 12px;
+            background: #21262d;
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #21262d;
+            color: var(--text);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #161b22; }
+
+        /* STATS GRID */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            background: #21262d;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-box .val { font-size: 28px; font-weight: 700; color: #fff; }
+        .stat-box .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
+
+        /* PROFILE CARD */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .profile-item .k { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+        .profile-item .v { font-size: 15px; color: #fff; margin-top: 2px; }
+
+        /* CHIP */
+        .chip {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .chip-win  { background:#0f2a1a; color:#7ee787; }
+        .chip-loss { background:#2d1519; color:#ffa198; }
+        .chip-draw { background:#2b1d09; color:#e3b341; }
+        .chip-sched{ background:#1c2128; color:var(--muted); }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media(max-width:600px){ .form-row { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a class="brand" href="/dashboard">Transfer<span>DB</span></a>
+    {% if session.username %}
+        {% set role = session.role %}
+        {% if role == 'DatabaseManager' %}
+            <a href="/dbm/stadiums">Stadiums</a>
+            <a href="/dbm/schedule_match">Schedule</a>
+            <a href="/dbm/transfer">Transfer</a>
+            <a href="/dbm/competition/create">Competition</a>
+            <a href="/dbm/assign_manager">Managers</a>
+        {% elif role == 'Manager' %}
+            <a href="/manager/fixtures">Fixtures</a>
+            <a href="/manager/standings">Standings</a>
+            <a href="/manager/leaderboard">Leaderboard</a>
+        {% elif role == 'Player' %}
+            <a href="/player/stats">Stats</a>
+            <a href="/player/match_history">Matches</a>
+            <a href="/player/career_history">Career</a>
+        {% elif role == 'Referee' %}
+            <a href="/referee/match_history">My Matches</a>
+        {% endif %}
+        <div class="spacer"></div>
+        <span class="role-badge">{{ session.username }} · {{ session.role }}</span>
+        <a href="/logout">Logout</a>
+    {% endif %}
+</nav>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+            <div class="alert alert-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>
