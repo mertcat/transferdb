@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %} – Squad Statistics{% endblock %}
+{% block content %}
+<h1>Squad Statistics</h1>
+
+<div class="card" style="margin-bottom:20px;">
+    <form method="GET" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0; min-width:140px;">
+            <label>Season</label>
+            <select name="season">
+                <option value="">—</option>
+                {% for s in seasons %}
+                <option value="{{ s }}" {% if s == selected_season %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0; min-width:220px;">
+            <label>Competition</label>
+            <select name="competition_id">
+                <option value="">—</option>
+                {% for c in competitions %}
+                <option value="{{ c.competition_id }}"
+                    {% if c.competition_id|string == selected_comp %}selected{% endif %}>
+                    {{ c.name }} ({{ c.season }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="/manager/squad_stats" class="btn btn-secondary">Current Squad</a>
+    </form>
+    <div style="margin-top:10px; font-size:12px; color:var(--muted);">
+        {% if historical %}
+            Historical view — all players who represented the club in the filtered matches.
+        {% else %}
+            Current squad view — players under active contract with your club (stats aggregated only for appearances while at this club).
+        {% endif %}
+    </div>
+</div>
+
+{% if players %}
+<div class="card">
+<table>
+    <thead>
+        <tr>
+            <th>Name</th><th>Age</th><th>Pos</th><th>Foot</th><th>Height</th>
+            <th>Nationality</th><th>Mkt Val</th>
+            <th>MP</th><th>G</th><th>A</th><th>YC</th><th>RC</th>
+            <th>Avg Rat</th><th>Avg Min</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for p in players %}
+    <tr>
+        <td style="font-weight:600;">{{ p.full_name }}</td>
+        <td>{{ p.age }}</td>
+        <td style="color:var(--muted);">{{ p.main_position }}</td>
+        <td style="color:var(--muted);">{{ p.strong_foot }}</td>
+        <td>{{ p.height }} cm</td>
+        <td style="color:var(--muted);">{{ p.nationality }}</td>
+        <td>€{{ '{:,.0f}'.format(p.market_value) }}</td>
+        <td>{{ p.matches_played or 0 }}</td>
+        <td>{{ p.goals or 0 }}</td>
+        <td>{{ p.assists or 0 }}</td>
+        <td>{{ p.yellow_cards or 0 }}</td>
+        <td>{{ p.red_cards or 0 }}</td>
+        <td>{{ p.avg_rating if p.avg_rating is not none else '—' }}</td>
+        <td>{{ p.avg_minutes if p.avg_minutes is not none else '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="card"><p style="color:var(--muted);">No players to display.</p></div>
+{% endif %}
+{% endblock %}

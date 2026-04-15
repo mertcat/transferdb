@@ -143,10 +143,10 @@ def test_starter_limit_exceeded():
     db = get_db(); cur = db.cursor()
     try:
         _match(cur, 9011, '2027-04-01 20:00:00', 3, 4, stadium=3, ref=1002)
-        for pid in range(1, 12):           # players 1-11 as starters
+        for pid in range(1101, 1112):      # players 1101-1111 as starters
             _lineup(cur, 9011, pid, starter=1, minutes=90, rating=6.0)
         with pytest.raises(mysql.connector.Error, match="[Ss]tarter"):
-            _lineup(cur, 9011, 12, starter=1, minutes=90, rating=6.0)
+            _lineup(cur, 9011, 1112, starter=1, minutes=90, rating=6.0)
     finally:
         db.rollback(); cur.close(); db.close()
 
@@ -156,7 +156,7 @@ def test_starter_limit_exactly_11_ok():
     db = get_db(); cur = db.cursor()
     try:
         _match(cur, 9012, '2027-04-02 20:00:00', 3, 4, stadium=3, ref=1002)
-        for pid in range(1, 12):
+        for pid in range(1101, 1112):
             _lineup(cur, 9012, pid, starter=1, minutes=90, rating=6.0)
     finally:
         db.rollback(); cur.close(); db.close()
@@ -167,33 +167,24 @@ def test_squad_size_exceeded():
     db = get_db(); cur = db.cursor()
     try:
         _match(cur, 9013, '2027-04-03 20:00:00', 5, 6, stadium=4, ref=1003)
-        # Create 6 temporary players so we have 24 total (18 existing + 6)
-        for pid in range(9901, 9907):
-            cur.execute("""
-                INSERT INTO Person (person_id, name, surname, nationality, date_of_birth)
-                VALUES (%s,'Tmp','Player','Test','2000-01-01')
-            """, (pid,))
-            cur.execute("""
-                INSERT INTO Player (person_id, market_value, main_position, strong_foot, height)
-                VALUES (%s, 1000, 'Forward', 'Right', 180)
-            """, (pid,))
-        # Add 23 players (IDs 1-18, 9901-9905)
-        for pid in list(range(1, 19)) + list(range(9901, 9906)):
+        # Add 23 players (1101-1123), 24th must fail
+        for pid in range(1101, 1124):
             _lineup(cur, 9013, pid, minutes=0, rating=5.0)
-        # 24th must fail
         with pytest.raises(mysql.connector.Error, match="[Ss]quad"):
-            _lineup(cur, 9013, 9906, minutes=0, rating=5.0)
+            _lineup(cur, 9013, 1124, minutes=0, rating=5.0)
     finally:
         db.rollback(); cur.close(); db.close()
 
 
 def test_loan_player_blocked_from_parent_club_match():
-    """Player 2 on loan from club 1; match involving club 1 → error."""
+    """Player 1251 has permanent at club 1 & loan at club 2;
+       inserting into a match that involves club 1 must fail."""
     db = get_db(); cur = db.cursor()
     try:
-        # Match 1 (existing) has clubs 1 and 2. Player 2 is on loan from club 1.
+        # Create a fresh future match (clubs 1 vs 3) so lineup is empty.
+        _match(cur, 9014, '2027-05-10 20:00:00', 1, 3, stadium=6, ref=1006)
         with pytest.raises(mysql.connector.Error, match="[Ll]oan"):
-            _lineup(cur, 1, 2, starter=1, minutes=90, rating=7.0)
+            _lineup(cur, 9014, 1251, starter=1, minutes=90, rating=7.0)
     finally:
         db.rollback(); cur.close(); db.close()
 
@@ -216,11 +207,11 @@ def test_attendance_exceeds_capacity():
 
 
 def test_attendance_at_capacity_ok():
-    """Attendance exactly at capacity → accepted."""
+    """Attendance exactly at capacity → accepted. Stadium 1 capacity = 52280."""
     db = get_db(); cur = db.cursor()
     try:
         cur.execute(
-            "UPDATE `Match` SET attendance = 53400 WHERE match_id = 1"
+            "UPDATE `Match` SET attendance = 52280 WHERE match_id = 1"
         )
     finally:
         db.rollback(); cur.close(); db.close()
@@ -234,12 +225,12 @@ def test_duplicate_permanent_contract():
     """Player with active permanent → adding a second permanent → error."""
     db = get_db(); cur = db.cursor()
     try:
-        # Player 5 has an active permanent at club 1 (confirmed from data)
+        # Player 1101 has an active permanent at club 1 (confirmed from seed data)
         with pytest.raises(mysql.connector.Error, match="[Pp]ermanent"):
             cur.execute("""
                 INSERT INTO Contract (player_id, club_id, contract_type,
                                       weekly_wage, start_date, end_date)
-                VALUES (5, 2, 'Permanent', 5000, '2026-01-01', '2028-01-01')
+                VALUES (1101, 2, 'Permanent', 5000, '2026-01-01', '2028-01-01')
             """)
     finally:
         db.rollback(); cur.close(); db.close()
@@ -660,9 +651,9 @@ def test_submit_result_future_match():
     """Cannot submit result for a match that hasn't been played yet."""
     db = get_db(); cur = db.cursor()
     try:
-        # Match 5 is in the future (2026-05-01), referee 1002
+        # Match 47 is scheduled in the future with referee 1010 (seed data)
         with pytest.raises(mysql.connector.Error, match="[Bb]efore|[Ff]uture|[Tt]ime"):
-            cur.callproc("submit_match_result", [5, 1002, 1, 0, 15000])
+            cur.callproc("submit_match_result", [47, 1010, 1, 0, 15000])
     finally:
         db.rollback(); cur.close(); db.close()
 

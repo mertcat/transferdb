@@ -900,6 +900,143 @@ def manager_standings():
                            selected_comp=comp_id)
 
 
+@app.route("/manager/squad_stats")
+@role_required("Manager")
+def manager_squad_stats():
+    """
+    Req 7 – Squad Statistics
+      • Default: Current Squad View — players currently under active contract
+        (Permanent or Loan) with the manager's club. Stats aggregated only for
+        performances *while playing for this club*.
+      • Filtered: Historical Competition View — pass season + competition_id to
+        view all players who represented the club in those specific matches.
+    """
+    pid     = session["person_id"]
+    club_id = _get_manager_club_id(pid)
+    season  = request.args.get("season")
+    comp_id = request.args.get("competition_id")
+
+    db  = get_db()
+    cur = db.cursor(dictionary=True)
+
+    # Dropdowns – seasons and competitions the club has actually played in
+    cur.execute("""
+        SELECT DISTINCT comp.season
+        FROM `Match` m
+        JOIN Competition comp ON comp.competition_id = m.competition_id
+        WHERE m.home_club_id = %s OR m.away_club_id = %s
+        ORDER BY comp.season DESC
+    """, (club_id, club_id))
+    seasons = [r["season"] for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT DISTINCT comp.competition_id, comp.name, comp.season
+        FROM `Match` m
+        JOIN Competition comp ON comp.competition_id = m.competition_id
+        WHERE m.home_club_id = %s OR m.away_club_id = %s
+        ORDER BY comp.name
+    """, (club_id, club_id))
+    competitions = cur.fetchall()
+
+    historical = bool(season or comp_id)
+
+    if historical:
+        # Historical view: every player who appeared in a match where this club
+        # was home/away AND (optionally) filtered by season / competition.
+        filters = ["(m.home_club_id = %s OR m.away_club_id = %s)"]
+        params  = [club_id, club_id]
+        if season:
+            filters.append("comp.season = %s")
+            params.append(season)
+        if comp_id:
+            filters.append("m.competition_id = %s")
+            params.append(comp_id)
+        where = " AND ".join(filters)
+
+        cur.execute(f"""
+            SELECT l.player_id,
+                   CONCAT(pe.name,' ',pe.surname) AS full_name,
+                   TIMESTAMPDIFF(YEAR, pe.date_of_birth, CURDATE()) AS age,
+                   pl.main_position, pl.strong_foot, pl.market_value,
+                   pl.height, pe.nationality,
+                   COUNT(*)                   AS matches_played,
+                   COALESCE(SUM(l.goals),0)           AS goals,
+                   COALESCE(SUM(l.assists),0)         AS assists,
+                   COALESCE(SUM(l.yellow_cards),0)    AS yellow_cards,
+                   COALESCE(SUM(l.red_cards),0)       AS red_cards,
+                   ROUND(AVG(l.rating),2)             AS avg_rating,
+                   ROUND(AVG(l.minutes_played),1)     AS avg_minutes
+            FROM Lineup l
+            JOIN `Match` m        ON m.match_id = l.match_id
+            JOIN Competition comp ON comp.competition_id = m.competition_id
+            JOIN Player pl        ON pl.person_id = l.player_id
+            JOIN Person pe        ON pe.person_id = l.player_id
+            WHERE {where}
+            GROUP BY l.player_id, pe.name, pe.surname, pe.date_of_birth,
+                     pl.main_position, pl.strong_foot, pl.market_value,
+                     pl.height, pe.nationality
+            ORDER BY matches_played DESC, full_name
+        """, params)
+    else:
+        # Current squad view: active contract with this club. Stats restricted
+        # to matches whose datetime falls within that contract's window at
+        # this club (so loan arrivals / departures are counted correctly).
+        cur.execute("""
+            SELECT pe.person_id AS player_id,
+                   CONCAT(pe.name,' ',pe.surname) AS full_name,
+                   TIMESTAMPDIFF(YEAR, pe.date_of_birth, CURDATE()) AS age,
+                   pl.main_position, pl.strong_foot, pl.market_value,
+                   pl.height, pe.nationality,
+                   COALESCE(agg.matches_played,0)  AS matches_played,
+                   COALESCE(agg.goals,0)           AS goals,
+                   COALESCE(agg.assists,0)         AS assists,
+                   COALESCE(agg.yellow_cards,0)    AS yellow_cards,
+                   COALESCE(agg.red_cards,0)       AS red_cards,
+                   agg.avg_rating                  AS avg_rating,
+                   agg.avg_minutes                 AS avg_minutes
+            FROM Contract ct
+            JOIN Player pl ON pl.person_id = ct.player_id
+            JOIN Person pe ON pe.person_id = ct.player_id
+            LEFT JOIN (
+                SELECT l.player_id,
+                       COUNT(*)                 AS matches_played,
+                       SUM(l.goals)             AS goals,
+                       SUM(l.assists)           AS assists,
+                       SUM(l.yellow_cards)      AS yellow_cards,
+                       SUM(l.red_cards)         AS red_cards,
+                       ROUND(AVG(l.rating),2)   AS avg_rating,
+                       ROUND(AVG(l.minutes_played),1) AS avg_minutes
+                FROM Lineup l
+                JOIN `Match` m ON m.match_id = l.match_id
+                JOIN Contract c2
+                     ON c2.player_id = l.player_id
+                    AND c2.club_id   = %s
+                    AND DATE(m.match_datetime) BETWEEN c2.start_date AND c2.end_date
+                WHERE (m.home_club_id = %s OR m.away_club_id = %s)
+                GROUP BY l.player_id
+            ) agg ON agg.player_id = ct.player_id
+            WHERE ct.club_id = %s
+              AND CURDATE() BETWEEN ct.start_date AND ct.end_date
+            GROUP BY pe.person_id, pe.name, pe.surname, pe.date_of_birth,
+                     pl.main_position, pl.strong_foot, pl.market_value,
+                     pl.height, pe.nationality,
+                     agg.matches_played, agg.goals, agg.assists,
+                     agg.yellow_cards, agg.red_cards, agg.avg_rating, agg.avg_minutes
+            ORDER BY pe.surname
+        """, (club_id, club_id, club_id, club_id))
+
+    players = cur.fetchall()
+    cur.close()
+
+    return render_template("manager/squad_stats.html",
+                           players=players,
+                           seasons=seasons,
+                           competitions=competitions,
+                           selected_season=season,
+                           selected_comp=comp_id,
+                           historical=historical)
+
+
 @app.route("/manager/leaderboard")
 @role_required("Manager")
 def manager_leaderboard():
@@ -909,7 +1046,15 @@ def manager_leaderboard():
     db       = get_db()
     cur      = db.cursor(dictionary=True)
 
-    cur.execute("SELECT competition_id, name, season FROM Competition ORDER BY name")
+    # Per spec §8: only competitions the manager's club has participated in
+    cur.execute("""
+        SELECT DISTINCT comp.competition_id, comp.name, comp.season
+        FROM Competition comp
+        JOIN `Match` m ON m.competition_id = comp.competition_id
+        WHERE m.home_club_id IN (SELECT club_id FROM Club WHERE manager_id = %s)
+           OR m.away_club_id IN (SELECT club_id FROM Club WHERE manager_id = %s)
+        ORDER BY comp.name
+    """, (pid, pid))
     competitions = cur.fetchall()
 
     leaders = []
