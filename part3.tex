@@ -1,0 +1,200 @@
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+
+\onehalfspacing
+
+\title{CMPE 321 Project 2 -- Part 3: Schema Refinement and Normalization}
+\author{Selcen Çelik}
+\date{March 2026}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{3cm}
+
+    {\LARGE \textbf{Project 2: TransferDB \\Part 3}\par}
+    \vspace{0.5cm}
+    {\Large CmpE321 -- Introduction to Database Systems \par}
+    {\Large Spring 2026\par}
+
+    \vspace{2cm}
+
+    {\large
+    Mert Ozustun, 2022400192 \\
+    Selcen Celik, 2022400219
+    \par}
+
+    \vspace{1cm}
+
+    {\large Department of Computer Engineering \par}
+    {\large Bogazici University \par}
+
+    \vspace{1cm}
+    {\large \today \par}
+\end{titlepage}
+
+\subsection{Schema Summary}
+\begin{itemize}
+    \item \textbf{AppUser}: Stores the login details and the role of the user, which can be DatabaseManager, Player, Manager or Referee. It also links to a \texttt{Person} if we need to.
+    \item \textbf{Person}: A category for people in our system. It has details like name, surname, nationality and date of birth. It helps us identify individuals.
+    \item \textbf{Player}: Stores  information that's specific to players like how much they are worth what position they play, which foot they prefer and how tall they are.
+    \item \textbf{Manager}: Stores manager-specific attributes such as preferred formation and experience level.
+    \item \textbf{Referee}: Stores referee-specific attributes such as license level and years of experience.
+    \item \textbf{Stadium}: Stores stadium details (name, city, capacity) and clubs and matches are linked to stadiums.
+    \item \textbf{Club}: Stores club information including which stadium they play at and who their manager's.
+    \item \textbf{Competition}: Stores all the details about a competition, like its name, what season it's which country it is in and what type of competition it is. It helps us understand the context of matches and reports.
+    \item \textbf{Match}: Stores all the details about a match like when it's which clubs are playing, where it is, who the referee is and what the result is.
+    \item \textbf{Contract}: Stores the details of a players contract with a club like what type of contract it's how much they get paid and when the contract starts and ends.
+    \item \textbf{TransferRecord}: Keeps a record of when a player moves from one club to another including which clubs are involved how much the player costs and when the transfer happens.
+    \item \textbf{Lineup}: Represents match participation and per-match statistics (starter/substitute status, goals, assists, cards, rating, minutes).
+\end{itemize}
+\section{Functional Dependencies}
+\subsection{Assumptions and Notation}
+Functional dependencies will be represented using the usual $X \rightarrow Y$, where $X$ and $Y$ subsets of the attribute sets belonging to the same relation. Primary keys (PK) and \texttt{UNIQUE} will be considered candidate keys, provided that they do not
+contain NULLABLE fields. It is assumed that surrogate keys, such as \texttt{person\_id}, \texttt{club\_id}, \texttt{match\_id}, \texttt{contract\_id}, and \texttt{transfer\_id} can uniquely identify tuples. In case of composite keys like \texttt{Lineup(match\_id, player\_id)}), the entire attribute subset makes up the candidate key.
+
+A non-trivial functional dependency is one where \emph{non-trivial} if $Y \nsubseteq X$ (i.e., it is not implied by reflexivity). The set of functional dependencies is based on (i)constraints at the level of
+the schema (such as PK or UNIQUE) and (PK/\texttt{UNIQUE}) and (ii) emantics of the particular application (e.g., match id determines all other match attributes).
+
+In our normalization analysis, we check Boyce--Codd Normal Form (BCNF) by testing that every non-trivial dependency $X \rightarrow A$ in $F^{+}$, $X$ is a superkey of the relation. In case BCNF is violated, 3NF is tested by checking if either $X$ is a superkey or $A$ is a prime attribute (i.e., part of some candidate key).
+
+\subsection{List of Non-Trivial Functional Dependencies}
+\begin{longtable}{@{}p{0.24\linewidth}p{0.72\linewidth}@{}}
+\toprule
+\textbf{Relation} & \textbf{Non-trivial FDs} \\
+\midrule
+\endhead
+
+AppUser & username $\rightarrow$ password, role, person\_id \\
+
+Person & person\_id $\rightarrow$ name, surname, nationality, date\_of\_birth \\
+
+Player & person\_id $\rightarrow$ market\_value, main\_position, strong\_foot, height \\
+
+Manager & person\_id $\rightarrow$ preferred\_formation, experience\_level \\
+
+Referee & person\_id $\rightarrow$ license\_level, years\_of\_experience \\
+
+Stadium & stadium\_id $\rightarrow$ stadium\_name, city, capacity \\
+
+Club & club\_id $\rightarrow$ club\_name, city, foundation\_year, stadium\_id, manager\_id; \;
+club\_name $\rightarrow$ club\_id, city, foundation\_year, stadium\_id, manager\_id \\
+
+Competition & competition\_id $\rightarrow$ name, season, country, competition\_type; \;
+(name, season) $\rightarrow$ competition\_id, country, competition\_type \\
+
+Match & match\_id $\rightarrow$ match\_datetime, attendance, home\_goals, away\_goals, home\_club\_id, away\_club\_id, stadium\_id, competition\_id, referee\_id, is\_completed \\
+
+Contract & contract\_id $\rightarrow$ player\_id, club\_id, start\_date, end\_date, weekly\_wage, contract\_type \\
+
+TransferRecord & transfer\_id $\rightarrow$ player\_id, from\_club\_id, to\_club\_id, transfer\_date, transfer\_fee, transfer\_type \\
+
+Lineup & (match\_id, player\_id) $\rightarrow$ is\_starter, minutes\_played, position\_in\_match, goals, assists, yellow\_cards, red\_cards, rating \\
+
+\bottomrule
+\end{longtable}
+
+\section{Normalization Analysis}
+\subsection{Method}
+For each relation we identify all candidate keys from the functional dependencies listed above. We then check every non-trivial FD $X \rightarrow A$: if $X$ is a superkey the relation satisfies BCNF for that dependency. If all FDs pass, the relation is in BCNF. When BCNF is violated, we check 3NF by additionally testing whether $A$ is a prime attribute (part of some candidate key).
+
+\subsection{BCNF / 3NF Status by Relation}
+
+\subsubsection{AppUser}
+\textbf{Candidate key:} \{username\}. The only non-trivial FD is username $\rightarrow$ password, role, person\_id, and username is the primary key. \textbf{BCNF: Yes.}
+
+\subsubsection{Person}
+\textbf{Candidate key:} \{person\_id\}. The only non-trivial FD is person\_id $\rightarrow$ name, surname, nationality, date\_of\_birth. The determinant is the primary key. \textbf{BCNF: Yes.}
+
+\subsubsection{Player}
+\textbf{Candidate key:} \{person\_id\}. FD: person\_id $\rightarrow$ market\_value, main\_position, strong\_foot, height. Determinant is the primary key. \textbf{BCNF: Yes.}
+
+\subsubsection{Manager}
+\textbf{Candidate key:} \{person\_id\}. FD: person\_id $\rightarrow$ preferred\_formation, experience\_level. Determinant is the primary key. \textbf{BCNF: Yes.}
+
+\subsubsection{Referee}
+\textbf{Candidate key:} \{person\_id\}. FD: person\_id $\rightarrow$ license\_level, years\_of\_experience. Determinant is the primary key. \textbf{BCNF: Yes.}
+
+\subsubsection{Stadium}
+\textbf{Candidate key:} \{stadium\_id\}. FD: stadium\_id $\rightarrow$ stadium\_name, city, capacity. Determinant is the primary key. \textbf{BCNF: Yes.}
+
+\subsubsection{Club}
+\textbf{Candidate keys:} \{club\_id\} and \{club\_name\} (club\_name has a UNIQUE constraint).
+\begin{itemize}
+    \item club\_id $\rightarrow$ club\_name, city, foundation\_year, stadium\_id, manager\_id --- club\_id is a superkey. \checkmark
+    \item club\_name $\rightarrow$ club\_id, city, foundation\_year, stadium\_id, manager\_id --- club\_name is a superkey. \checkmark
+\end{itemize}
+Both determinants are candidate keys. \textbf{BCNF: Yes.}
+
+\subsubsection{Competition}
+\textbf{Candidate keys:} \{competition\_id\} and \{name, season\} (UNIQUE constraint).
+\begin{itemize}
+    \item competition\_id $\rightarrow$ all attributes --- superkey. \checkmark
+    \item (name, season) $\rightarrow$ all attributes --- superkey. \checkmark
+\end{itemize}
+\textbf{BCNF: Yes.}
+
+\subsubsection{Match}
+\textbf{Candidate key:} \{match\_id\}. The single non-trivial FD has match\_id (the PK) as determinant. \textbf{BCNF: Yes.}
+
+\subsubsection{Contract}
+\textbf{Candidate key:} \{contract\_id\}. The single non-trivial FD has contract\_id (the PK) as determinant. \textbf{BCNF: Yes.}
+
+\subsubsection{TransferRecord}
+\textbf{Candidate key:} \{transfer\_id\}. The single non-trivial FD has transfer\_id (the PK) as determinant. \textbf{BCNF: Yes.}
+
+\subsubsection{Lineup}
+\textbf{Candidate key:} \{match\_id, player\_id\} (composite PK). The only non-trivial FD has the full composite key as determinant. \textbf{BCNF: Yes.}
+
+\section{Decompositions}
+All twelve relations already satisfy BCNF. No decomposition was necessary. Every non-trivial functional dependency has a superkey as its determinant.
+
+\section{Constraints Beyond Basic DDL}
+
+\subsection{Constraints Enforced with CHECK}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{Player.market\_value > 0} --- market value must be positive.
+    \item \texttt{Player.height > 0} --- height must be positive.
+    \item \texttt{Referee.years\_of\_experience >= 0} --- non-negative experience.
+    \item \texttt{Stadium.capacity > 0} --- positive capacity.
+    \item \texttt{Contract.end\_date > start\_date} --- contract period validity.
+    \item \texttt{Contract.weekly\_wage > 0} --- positive wage.
+    \item \texttt{TransferRecord.transfer\_fee >= 0} --- non-negative fee.
+    \item \texttt{TransferRecord.from\_club\_id <> to\_club\_id} --- cannot transfer to the same club (NULLs allowed for free agents/releases).
+    \item \texttt{Match.home\_club\_id <> away\_club\_id} --- a club cannot play itself.
+    \item \texttt{Match.attendance >= 0}, \texttt{home\_goals >= 0}, \texttt{away\_goals >= 0} --- non-negative match stats.
+    \item \texttt{Lineup.minutes\_played} between 0 and 120, \texttt{yellow\_cards} in \{0,1,2\}, \texttt{red\_cards} in \{0,1\}, \texttt{rating} between 1.0 and 10.0, \texttt{goals >= 0}, \texttt{assists >= 0} --- per-match stat bounds.
+\end{itemize}
+
+\subsection{Constraints Enforced with Triggers}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{trg\_match\_no\_overlap} (BEFORE INSERT on Match): Prevents scheduling conflicts by checking that no other match at the same stadium, involving the same club, or assigned to the same referee starts within 120 minutes. Also enforces that matches must be scheduled in the future.
+    \item \textbf{trg\_lineup\_starter\_limit} (BEFORE INSERT on Lineup): Enforces per-club limits: a maximum of 11 starters and 23 total squad members for each club in a given match. Determines the player's club via their active contract.
+    \item \textbf{trg\_lineup\_requires\_active\_contract} (BEFORE INSERT on Lineup): Ensures a player can only appear in a match lineup if they hold an active contract (Permanent or Loan) with either the home or away club.
+    \item \textbf{trg\_no\_loan\_parent\_play} (BEFORE INSERT on Lineup): Prevents a loaned player from being added to a match lineup for their parent (permanent contract) club.
+    \item \textbf{trg\_contract\_rules} (BEFORE INSERT on Contract): Enforces (1)~at most one active Permanent contract per player, (2)~at most one active Loan contract per player, and (3)~a Loan contract requires an active Permanent contract at a different club.
+    \item \textbf{trg\_club\_manager\_unique} (BEFORE UPDATE on Club): Enforces that a manager can only be assigned to one club at a time. Additionally, if the club already has a manager, the current manager must be released before a new one can be assigned.
+    \item \textbf{trg\_match\_attendance\_capacity} (BEFORE UPDATE on Match): Ensures that the attendance value recorded for a match does not exceed the capacity of the stadium where the match is played.
+    \item \textbf{trg\_lineup\_suspension\_check} (BEFORE INSERT on Lineup): Enforces red-card suspensions (one-match ban after receiving a red card) and yellow-card accumulation suspensions (one-match ban after every 5 yellow cards in the same competition and season).
+\end{itemize}
+
+\subsection{Constraints Enforced with Stored Procedures}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{schedule\_match}: Wraps match insertion in a transaction. Validates that home and away clubs differ, then delegates further constraint checking to \texttt{trg\_match\_no\_overlap}. Returns the new match ID.
+    \item \textbf{register\_transfer}: Handles the full transfer workflow inside a transaction. For a normal transfer it terminates the existing contract of the same type (Permanent or Loan), inserts a \texttt{TransferRecord}, creates a new \texttt{Contract} (which fires \texttt{trg\_contract\_rules}), and updates the player's market value for permanent transfers with a non-zero fee. For a release (destination club is NULL), it terminates all active contracts and records the release.
+    \item \textbf{submit\_match\_result}: Validates that only the assigned referee can submit results and that at least 120 minutes have elapsed since kick-off (i.e.\ the match has concluded). Updates goals, attendance, and completion status; the UPDATE fires \texttt{trg\_match\_attendance\_capacity}.
+    \item \textbf{end\_loan}: Terminates a player's active loan contract and records the return transfer to the parent (permanent) club. Signals an error if no active loan exists.
+\end{itemize}
+
+\section{Conclusion}
+All twelve relations in the TransferDB schema satisfy Boyce--Codd Normal Form (BCNF), so no decomposition was required. Domain constraints that cannot be expressed through basic DDL (primary keys, foreign keys, UNIQUE, NOT NULL) are enforced at the database level using CHECK constraints, eight BEFORE INSERT/UPDATE triggers, and four stored procedures. This ensures that the database protects its own integrity regardless of which application connects to it.
+
+\end{document}

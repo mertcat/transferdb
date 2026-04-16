@@ -762,10 +762,10 @@ def player_career_history():
     cur.execute("""
         SELECT tr.transfer_date, tr.transfer_fee, tr.transfer_type,
                COALESCE(cf.club_name, 'Free Agent') AS from_club,
-               ct2.club_name AS to_club
+               COALESCE(ct2.club_name, 'Released') AS to_club
         FROM TransferRecord tr
         LEFT JOIN Club cf  ON cf.club_id  = tr.from_club_id
-        JOIN  Club ct2 ON ct2.club_id = tr.to_club_id
+        LEFT JOIN Club ct2 ON ct2.club_id = tr.to_club_id
         WHERE tr.player_id = %s
         ORDER BY tr.transfer_date DESC
     """, (pid,))

@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS TransferRecord (
     transfer_type ENUM('Permanent','Loan') NOT NULL,
     PRIMARY KEY (transfer_id),
     FOREIGN KEY (player_id)    REFERENCES Player(person_id),
+    CHECK (from_club_id <> to_club_id OR from_club_id IS NULL OR to_club_id IS NULL),
     FOREIGN KEY (from_club_id) REFERENCES Club(club_id),
     FOREIGN KEY (to_club_id)   REFERENCES Club(club_id)
 );

@@ -77,25 +77,47 @@ FOR EACH ROW
 BEGIN
     DECLARE starter_count INT DEFAULT 0;
     DECLARE squad_count   INT DEFAULT 0;
+    DECLARE v_home        INT;
+    DECLARE v_away        INT;
+    DECLARE v_player_club INT DEFAULT NULL;
 
-    -- Count existing starters for this match
+    -- Determine which club this player belongs to in this match
+    SELECT home_club_id, away_club_id
+    INTO v_home, v_away
+    FROM `Match`
+    WHERE match_id = NEW.match_id;
+
+    SELECT club_id INTO v_player_club
+    FROM Contract
+    WHERE player_id = NEW.player_id
+      AND start_date <= CURDATE() AND end_date > CURDATE()
+      AND club_id IN (v_home, v_away)
+    LIMIT 1;
+
+    -- Count existing starters for THIS CLUB in this match
     SELECT COUNT(*) INTO starter_count
-    FROM Lineup
-    WHERE match_id = NEW.match_id AND is_starter = 1;
+    FROM Lineup l
+    JOIN Contract ct ON ct.player_id = l.player_id
+      AND ct.start_date <= CURDATE() AND ct.end_date > CURDATE()
+      AND ct.club_id = v_player_club
+    WHERE l.match_id = NEW.match_id AND l.is_starter = 1;
 
     IF NEW.is_starter = 1 AND starter_count >= 11 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Squad error: a match cannot have more than 11 starters.';
+            SET MESSAGE_TEXT = 'Squad error: a club cannot have more than 11 starters in a match.';
     END IF;
 
-    -- Count total squad size
+    -- Count total squad size for THIS CLUB in this match
     SELECT COUNT(*) INTO squad_count
-    FROM Lineup
-    WHERE match_id = NEW.match_id;
+    FROM Lineup l
+    JOIN Contract ct ON ct.player_id = l.player_id
+      AND ct.start_date <= CURDATE() AND ct.end_date > CURDATE()
+      AND ct.club_id = v_player_club
+    WHERE l.match_id = NEW.match_id;
 
     IF squad_count >= 23 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Squad error: a match squad cannot exceed 23 players.';
+            SET MESSAGE_TEXT = 'Squad error: a club squad cannot exceed 23 players per match.';
     END IF;
 END$$
 
