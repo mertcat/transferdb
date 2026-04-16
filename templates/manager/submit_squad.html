@@ -25,27 +25,35 @@
         </div>
         <table>
             <thead>
-                <tr><th>In Squad</th><th>Name</th><th>Position</th><th>Starter</th></tr>
+                <tr>
+                    <th>In Squad</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Starter</th>
+                </tr>
             </thead>
             <tbody>
-            {% for p in players %}
-            {% set is_suspended = p.person_id in suspended_players %}
-            <tr {% if is_suspended %}style="opacity:0.6; background-color:rgba(248,81,73,0.1);" title="Suspended"{% endif %}>
-                <td>
-                    <input type="checkbox" name="player_ids" value="{{ p.person_id }}" id="squad_{{ p.person_id }}"
-                           onchange="onSquadChange(this, '{{ p.person_id }}')" class="squad-cb">
-                </td>
-                <td>
-                    {{ p.full_name }}
-                    {% if is_suspended %}<span style="color:#f85149; font-size:12px; margin-left:8px;">(Suspended)</span>{% endif %}
-                </td>
-                <td style="color:var(--muted);">{{ p.main_position }}</td>
-                <td>
-                    <input type="checkbox" name="starter_ids" value="{{ p.person_id }}" id="starter_{{ p.person_id }}"
-                           onchange="onStarterChange(this, '{{ p.person_id }}')" class="starter-cb">
-                </td>
-            </tr>
-            {% endfor %}
+                {% for p in players %}
+                {% set is_suspended = p.person_id in suspended_players %}
+                <tr {% if is_suspended %}style="opacity:0.6; background-color:rgba(248,81,73,0.1);" title="Suspended" {%
+                    endif %}>
+                    <td>
+                        <input type="checkbox" name="player_ids" value="{{ p.person_id }}" id="squad_{{ p.person_id }}"
+                            onchange="onSquadChange(this, '{{ p.person_id }}')" class="squad-cb">
+                    </td>
+                    <td>
+                        {{ p.full_name }}
+                        {% if is_suspended %}<span
+                            style="color:#f85149; font-size:12px; margin-left:8px;">(Suspended)</span>{% endif %}
+                    </td>
+                    <td style="color:var(--muted);">{{ p.main_position }}</td>
+                    <td>
+                        <input type="checkbox" name="starter_ids" value="{{ p.person_id }}"
+                            id="starter_{{ p.person_id }}" onchange="onStarterChange(this, '{{ p.person_id }}')"
+                            class="starter-cb">
+                    </td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
         <div style="margin-top:16px; display:flex; gap:10px;">
@@ -56,28 +64,28 @@
 </div>
 
 <script>
-function onStarterChange(cb, pid) {
-    if (cb.checked) {
-        document.getElementById('squad_' + pid).checked = true;
+    function onStarterChange(cb, pid) {
+        if (cb.checked) {
+            document.getElementById('squad_' + pid).checked = true;
+        }
+        updateCount();
     }
-    updateCount();
-}
 
-function onSquadChange(cb, pid) {
-    if (!cb.checked) {
-        document.getElementById('starter_' + pid).checked = false;
+    function onSquadChange(cb, pid) {
+        if (!cb.checked) {
+            document.getElementById('starter_' + pid).checked = false;
+        }
+        updateCount();
     }
-    updateCount();
-}
 
-function updateCount() {
-    const squad    = document.querySelectorAll('.squad-cb:checked').length;
-    const starters = document.querySelectorAll('.starter-cb:checked').length;
-    const el = document.getElementById('countDisplay');
-    el.textContent = `${squad} selected, ${starters} starters`;
-    el.style.color = (squad < 11 || squad > 23) ? '#f85149'
-                   : starters > 11              ? '#f85149'
-                   : '#7ee787';
-}
+    function updateCount() {
+        const squad = document.querySelectorAll('.squad-cb:checked').length;
+        const starters = document.querySelectorAll('.starter-cb:checked').length;
+        const el = document.getElementById('countDisplay');
+        el.textContent = `${squad} selected, ${starters} starters`;
+        el.style.color = (squad < 11 || squad > 23) ? '#f85149'
+            : starters > 11 ? '#f85149'
+                : '#7ee787';
+    }
 </script>
 {% endblock %}

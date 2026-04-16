@@ -247,9 +247,9 @@ BEGIN
             SET MESSAGE_TEXT = 'Only the assigned referee may submit results for this match.';
     END IF;
 
-    IF NOW() < v_match_dt THEN
+    IF NOW() < DATE_ADD(v_match_dt, INTERVAL 120 MINUTE) THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Match result cannot be submitted before the scheduled match time.';
+            SET MESSAGE_TEXT = 'Match result cannot be submitted before 120 minutes after the scheduled kick-off.';
     END IF;
 
     -- trg_match_attendance_capacity fires on UPDATE
