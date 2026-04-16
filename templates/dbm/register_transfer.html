@@ -2,88 +2,219 @@
 {% block title %} – Register Transfer{% endblock %}
 {% block content %}
 <h1>Register Transfer &amp; Contract</h1>
-<div class="card" style="max-width:600px;">
-    <form method="POST">
-        <div class="form-group">
-            <label>Player</label>
-            <select name="player_id" id="playerSelect" required onchange="onPlayerChange(this.value)">
-                <option value="">Select player…</option>
-                {% for p in players %}
-                <option value="{{ p.person_id }}">{{ p.full_name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>From Club</label>
-                <div id="fromClubDisplay" style="padding:8px 10px; background:var(--surface2,#21262d);
-                     border:1px solid var(--border,#30363d); border-radius:6px;
-                     color:var(--muted); font-size:14px; min-height:36px;">
-                    Select a player first…
-                </div>
-            </div>
-            <div class="form-group">
-                <label>To Club</label>
-                <select name="to_club_id" required>
-                    <option value="">Select club…</option>
-                    {% for c in clubs %}
-                    <option value="{{ c.club_id }}">{{ c.club_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Transfer Type</label>
-                <select name="transfer_type" required onchange="updateFeeField(this.value)">
-                    <option value="Free">Free</option>
-                    <option value="Purchase">Purchase</option>
-                    <option value="Loan">Loan</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Transfer Fee (€)</label>
-                <input type="number" name="transfer_fee" id="feeInput" value="0" min="0" step="0.01">
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Weekly Wage (€)</label>
-                <input type="number" name="weekly_wage" required min="1" step="0.01">
-            </div>
-            <div class="form-group">
-                <label>Contract End Date</label>
-                <input type="date" name="contract_end" required>
-            </div>
-        </div>
-        <button type="submit" class="btn btn-primary">Register Transfer</button>
-    </form>
+
+<div class="card" style="max-width:360px; margin-bottom:24px;">
+    <div class="form-group" style="margin-bottom:0;">
+        <label>Select Player</label>
+        <select id="playerSelect" onchange="onPlayerChange(this.value)">
+            <option value="">Select player…</option>
+            {% for p in players %}
+            <option value="{{ p.person_id }}">{{ p.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
 </div>
+
+<!-- Two-panel contract sections (hidden until player selected) -->
+<div id="contractPanels" style="display:none;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+
+        <!-- ═══ PERMANENT CONTRACT SECTION ═══ -->
+        <div class="card" id="permPanel">
+            <h2 style="margin-bottom:12px;">Permanent Contract</h2>
+            <div id="permStatus" style="margin-bottom:14px; padding:10px 12px;
+                 background:#21262d; border:1px solid var(--border); border-radius:6px; font-size:13px;">
+            </div>
+
+            <!-- Transfer form (permanent) -->
+            <div id="permTransferForm">
+                <form method="POST">
+                    <input type="hidden" name="action" value="permanent_transfer">
+                    <input type="hidden" name="player_id" id="permPlayerId">
+                    <div class="form-group">
+                        <label>Transfer To</label>
+                        <select name="to_club_id" id="permToClub" required>
+                            <option value="">Select destination…</option>
+                            {% for c in clubs %}
+                            <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Transfer Fee</label>
+                            <input type="number" name="transfer_fee" value="0" min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>Weekly Wage</label>
+                            <input type="number" name="weekly_wage" min="1" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Contract End Date</label>
+                        <input type="date" name="contract_end" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Transfer (Permanent)</button>
+                </form>
+            </div>
+
+            <!-- Release button -->
+            <div id="permReleaseForm" style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+                <form method="POST" onsubmit="return confirm('Release this player? This will terminate ALL contracts (permanent and loan).');">
+                    <input type="hidden" name="action" value="release">
+                    <input type="hidden" name="player_id" id="releasePlayerId">
+                    <button type="submit" class="btn btn-danger" style="width:100%;">Release Player</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ═══ LOAN CONTRACT SECTION ═══ -->
+        <div class="card" id="loanPanel">
+            <h2 style="margin-bottom:12px;">Loan Contract</h2>
+            <div id="loanStatus" style="margin-bottom:14px; padding:10px 12px;
+                 background:#21262d; border:1px solid var(--border); border-radius:6px; font-size:13px;">
+            </div>
+
+            <!-- No permanent → loan blocked message -->
+            <div id="loanBlocked" style="display:none; color:var(--danger); font-size:13px; padding:8px 0;">
+                A player must have an active permanent contract before being loaned out.
+                <span style="display:block; font-size:11px; color:var(--muted); margin-top:4px;">
+                    (Enforced by database trigger)
+                </span>
+            </div>
+
+            <!-- End loan button (shown when on loan) -->
+            <div id="endLoanForm" style="display:none; margin-bottom:14px;">
+                <form method="POST" onsubmit="return confirm('End this loan? Player will return to their parent club.');">
+                    <input type="hidden" name="action" value="end_loan">
+                    <input type="hidden" name="player_id" id="endLoanPlayerId">
+                    <button type="submit" class="btn btn-danger" style="width:100%;">End Loan (Recall Player)</button>
+                </form>
+            </div>
+
+            <!-- Loan out form -->
+            <div id="loanOutForm" style="display:none;">
+                <form method="POST">
+                    <input type="hidden" name="action" value="loan_out">
+                    <input type="hidden" name="player_id" id="loanPlayerId">
+                    <div class="form-group">
+                        <label id="loanToLabel">Loan To</label>
+                        <select name="to_club_id" id="loanToClub" required>
+                            <option value="">Select club…</option>
+                            {% for c in clubs %}
+                            <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Loan Fee</label>
+                            <input type="number" name="transfer_fee" value="0" min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>Weekly Wage</label>
+                            <input type="number" name="weekly_wage" min="1" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Loan End Date</label>
+                        <input type="date" name="contract_end" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="loanSubmitBtn">Loan Out</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
 <script>
-const playerClubs = {{ player_clubs | tojson }};
+const pc = {{ player_contracts | tojson }};
 
 function onPlayerChange(pid) {
-    const display = document.getElementById('fromClubDisplay');
-    if (!pid) {
-        display.textContent  = 'Select a player first…';
-        display.style.color  = 'var(--muted)';
-        return;
-    }
-    const club = playerClubs[pid];
-    if (club) {
-        display.textContent = club.club_name;
-        display.style.color = 'var(--text, #e6edf3)';
-    } else {
-        display.textContent = 'No active contract (free agent → NULL)';
-        display.style.color = '#f85149';
-    }
-}
+    const panels = document.getElementById('contractPanels');
+    if (!pid) { panels.style.display = 'none'; return; }
+    panels.style.display = '';
 
-function updateFeeField(type) {
-    const feeInput = document.getElementById('feeInput');
-    if (type === 'Free') { feeInput.value = '0'; feeInput.disabled = true; }
-    else                 { feeInput.disabled = false; }
+    // Set player IDs in all hidden fields
+    document.getElementById('permPlayerId').value    = pid;
+    document.getElementById('releasePlayerId').value = pid;
+    document.getElementById('endLoanPlayerId').value = pid;
+    document.getElementById('loanPlayerId').value    = pid;
+
+    const data = pc[pid] || { permanent: null, loan: null };
+    const perm = data.permanent;
+    const loan = data.loan;
+
+    // ── Permanent section ──
+    const permStatus  = document.getElementById('permStatus');
+    const permForm    = document.getElementById('permTransferForm');
+    const releaseForm = document.getElementById('permReleaseForm');
+
+    if (perm) {
+        permStatus.innerHTML =
+            '<span style="color:var(--muted);">Current Club:</span> ' +
+            '<strong style="color:#fff;">' + perm.club_name + '</strong>' +
+            '<span style="color:var(--muted); margin-left:12px;">Until:</span> ' +
+            '<span style="color:var(--text);">' + perm.end_date + '</span>';
+        permForm.style.display    = '';
+        releaseForm.style.display = '';
+    } else {
+        permStatus.innerHTML =
+            '<span style="color:var(--danger);">Free Agent</span>' +
+            '<span style="color:var(--muted);"> — no active permanent contract</span>';
+        // Free agent: show sign form (same as transfer, just different label context)
+        permForm.style.display    = '';
+        releaseForm.style.display = 'none';
+    }
+
+    // ── Loan section ──
+    const loanStatus  = document.getElementById('loanStatus');
+    const loanBlocked = document.getElementById('loanBlocked');
+    const endLoanForm = document.getElementById('endLoanForm');
+    const loanOutForm = document.getElementById('loanOutForm');
+    const loanToLabel = document.getElementById('loanToLabel');
+    const loanSubmit  = document.getElementById('loanSubmitBtn');
+
+    if (!perm) {
+        // No permanent → cannot have a loan
+        loanStatus.innerHTML =
+            '<span style="color:var(--muted);">Not on Loan</span>';
+        loanBlocked.style.display = '';
+        endLoanForm.style.display = 'none';
+        loanOutForm.style.display = 'none';
+    } else if (loan) {
+        // Has active loan
+        loanStatus.innerHTML =
+            '<span style="color:var(--muted);">Loaned To:</span> ' +
+            '<strong style="color:#fff;">' + loan.club_name + '</strong>' +
+            '<span style="color:var(--muted); margin-left:12px;">Until:</span> ' +
+            '<span style="color:var(--text);">' + loan.end_date + '</span>' +
+            '<br><span style="color:var(--muted); font-size:12px;">Parent Club: ' +
+            perm.club_name + '</span>';
+        loanBlocked.style.display = 'none';
+        endLoanForm.style.display = '';
+        loanOutForm.style.display = '';
+        loanToLabel.textContent   = 'Change Loan To';
+        loanSubmit.textContent    = 'Change Loan Destination';
+    } else {
+        // Has permanent but no loan
+        loanStatus.innerHTML =
+            '<span style="color:var(--muted);">Not on Loan</span>' +
+            '<br><span style="color:var(--muted); font-size:12px;">Parent Club: ' +
+            perm.club_name + '</span>';
+        loanBlocked.style.display = 'none';
+        endLoanForm.style.display = 'none';
+        loanOutForm.style.display = '';
+        loanToLabel.textContent   = 'Loan To';
+        loanSubmit.textContent    = 'Loan Out';
+    }
 }
-updateFeeField('Free');
 </script>
+
+<style>
+    @media(max-width:800px){
+        #contractPanels > div { grid-template-columns: 1fr !important; }
+    }
+</style>
 {% endblock %}

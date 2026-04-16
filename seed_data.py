@@ -238,12 +238,42 @@ _player_names = [
 ]
 
 # Build player list with person_id 1101..
+# We need PIDs 1101-1260 (160 players) but only have 60 hand-crafted names.
+# Generate the remaining 100 dynamically.
+import random as _rnd
+
+_extra_names = []
+_gen_nats   = ["Türkiye","Brazil","France","Spain","Germany","England","Argentina","Portugal","Netherlands","Belgium"]
+_gen_fnames = ["Ali","Emre","Can","Deniz","Furkan","Cengiz","Berk","Burak","Tolga","Onur",
+               "Lucas","Hugo","Marco","Felix","Leon","Jan","Tom","Erik","Nils","Sam",
+               "Pablo","Diego","Carlos","Luis","Mateo","Ivan","Andre","Rafael","Jonas","Max"]
+_gen_snames = ["Yılmaz","Kaya","Çelik","Demir","Şahin","Özkan","Aydın","Arslan","Doğan","Koç",
+               "Silva","Santos","Moreira","Costa","Ferreira","Mueller","Weber","Schneider","Fischer","Dupont",
+               "Blanc","Moreau","Bernard","Rodriguez","Martinez","Lopez","Garcia","Brown","Smith","Wilson"]
+
+for _i in range(100):
+    fn = _gen_fnames[_i % len(_gen_fnames)]
+    sn = _gen_snames[_i % len(_gen_snames)]
+    nat = _gen_nats[_i % len(_gen_nats)]
+    yr = _rnd.randint(1988, 2005)
+    mn = _rnd.randint(1, 12)
+    dy = _rnd.randint(1, 28)
+    dob = f"{yr}-{mn:02d}-{dy:02d}"
+    mval = _rnd.randint(500000, 50000000)
+    pos = ["Goalkeeper","Defender","Midfielder","Forward"][_i % 4]
+    foot = ["Right","Left","Both"][_i % 3]
+    height = _rnd.randint(168, 196)
+    _extra_names.append((fn, sn, nat, dob, mval, pos, foot, height))
+
+_all_player_names = _player_names + _extra_names  # 160 total
+
 PLAYERS = []
-for i, p in enumerate(_player_names):
+for i, p in enumerate(_all_player_names):
     pid = 1101 + i
     username = f"plr_{p[0].lower()[:4]}{p[1].lower()[:4]}{pid}"
     PLAYERS.append((pid, username) + p)
 # PLAYERS: (pid, username, name, surname, nat, dob, mval, pos, foot, height)
+# PIDs 1101–1260
 
 # ── DB managers (AppUser only, no person) ────────────────────────────────────
 DB_MANAGERS = [
@@ -409,33 +439,33 @@ def run():
     # ── Transfer Records ─────────────────────────────────────────────────────
     print("── Inserting transfer records …")
     transfer_scenarios = [
-        # Purchase transfers between main clubs
-        (1101, 11, 1,  past(400), 25000000, "Purchase"),
-        (1102,  1, 2,  past(300), 18000000, "Purchase"),
-        (1103,  2, 3,  past(200), 12000000, "Purchase"),
-        (1109,  4, 1,  past(350), 30000000, "Purchase"),
-        (1110,  5, 2,  past(250), 22000000, "Purchase"),
-        (1181, 14, 11, past(365), 80000000, "Purchase"),
-        (1187, 15, 12, past(300), 60000000, "Purchase"),
-        (1193, 13, 14, past(200), 50000000, "Purchase"),
-        # Free transfers (from_club NULL = free agent → club)
-        (1241, None, 1,  past(100), 0, "Free"),
-        (1242, None, 3,  past(80),  0, "Free"),
-        (1243, None, 11, past(150), 0, "Free"),
+        # Permanent transfers between main clubs (purchase = Permanent with fee)
+        (1101, 11, 1,  past(400), 25000000, "Permanent"),
+        (1102,  1, 2,  past(300), 18000000, "Permanent"),
+        (1103,  2, 3,  past(200), 12000000, "Permanent"),
+        (1109,  4, 1,  past(350), 30000000, "Permanent"),
+        (1110,  5, 2,  past(250), 22000000, "Permanent"),
+        (1181, 14, 11, past(365), 80000000, "Permanent"),
+        (1187, 15, 12, past(300), 60000000, "Permanent"),
+        (1193, 13, 14, past(200), 50000000, "Permanent"),
+        # Permanent transfers from free agent (fee = 0)
+        (1241, None, 1,  past(100), 0, "Permanent"),
+        (1242, None, 3,  past(80),  0, "Permanent"),
+        (1243, None, 11, past(150), 0, "Permanent"),
         # Loan transfers
         (1251, 1, 2, past(30),  0,        "Loan"),
         (1252, 3, 4, past(60),  500000,   "Loan"),
-        # Historical transfers (now at new club)
-        (1104, 3, 1, past(600), 15000000, "Purchase"),
-        (1105, 1, 4, past(500), 10000000, "Purchase"),
-        (1106, 2, 5, past(450), 8000000,  "Purchase"),
-        (1107, 4, 3, past(400), 9000000,  "Purchase"),
-        (1195, 19, 12,past(200),40000000, "Purchase"),
-        (1196, 12, 11,past(100),35000000, "Purchase"),
-        (1200, 11, 15,past(180),55000000, "Purchase"),
-        # Free → club transfers from free agents
-        (1244, None, 2, past(50), 0, "Free"),
-        (1245, None, 7, past(90), 0, "Free"),
+        # Historical Permanent transfers (now at new club)
+        (1104, 3, 1, past(600), 15000000, "Permanent"),
+        (1105, 1, 4, past(500), 10000000, "Permanent"),
+        (1106, 2, 5, past(450), 8000000,  "Permanent"),
+        (1107, 4, 3, past(400), 9000000,  "Permanent"),
+        (1195, 19, 12,past(200),40000000, "Permanent"),
+        (1196, 12, 11,past(100),35000000, "Permanent"),
+        (1200, 11, 15,past(180),55000000, "Permanent"),
+        # Permanent from free agent
+        (1244, None, 2, past(50), 0, "Permanent"),
+        (1245, None, 7, past(90), 0, "Permanent"),
     ]
     for t in transfer_scenarios:
         pid, from_c, to_c, tdate, fee, ttype = t

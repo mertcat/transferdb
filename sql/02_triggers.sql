@@ -207,12 +207,12 @@ BEGIN
     DECLARE match_club_id   INT DEFAULT NULL;
     DECLARE is_on_loan      INT DEFAULT 0;
 
-    -- Is this player currently on loan?
+    -- Is this player currently on loan? (half-open: start <= today < end)
     SELECT COUNT(*) INTO is_on_loan
     FROM Contract
     WHERE player_id     = NEW.player_id
       AND contract_type = 'Loan'
-      AND CURDATE() BETWEEN start_date AND end_date;
+      AND start_date <= CURDATE() AND end_date > CURDATE();
 
     IF is_on_loan > 0 THEN
         -- Get the parent club (permanent contract)
@@ -220,7 +220,7 @@ BEGIN
         FROM Contract
         WHERE player_id     = NEW.player_id
           AND contract_type = 'Permanent'
-          AND CURDATE() BETWEEN start_date AND end_date
+          AND start_date <= CURDATE() AND end_date > CURDATE()
         LIMIT 1;
 
         -- Check if this match involves the parent club
@@ -272,7 +272,7 @@ BEGIN
     SELECT COUNT(*) INTO v_cnt
     FROM Contract
     WHERE player_id = NEW.player_id
-      AND CURDATE() BETWEEN start_date AND end_date
+      AND start_date <= CURDATE() AND end_date > CURDATE()
       AND club_id IN (v_home, v_away);
 
     IF v_cnt = 0 THEN
@@ -280,4 +280,98 @@ BEGIN
             SET MESSAGE_TEXT = 'Lineup error: player must have an active contract with one of the clubs in this match.';
     END IF;
 END$$
+
+-- ─────────────────────────────────────────────────────────────
+-- TRIGGER 8: Enforce suspensions (Red card and 5 Yellow cards)
+-- ─────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS trg_lineup_suspension_check$$
+CREATE TRIGGER trg_lineup_suspension_check
+BEFORE INSERT ON Lineup
+FOR EACH ROW
+BEGIN
+    DECLARE v_comp_id INT;
+    DECLARE v_season VARCHAR(20);
+    DECLARE v_match_dt DATETIME;
+    DECLARE v_home_club INT;
+    DECLARE v_away_club INT;
+    DECLARE v_player_club INT;
+
+    DECLARE v_club_last_dt DATETIME;
+    DECLARE v_player_last_match_id INT;
+    DECLARE v_player_last_dt DATETIME;
+    DECLARE v_red_cards INT DEFAULT 0;
+    
+    DECLARE v_total_yellows INT DEFAULT 0;
+    DECLARE v_last_match_yellows INT DEFAULT 0;
+    DECLARE v_prev_yellows INT DEFAULT 0;
+
+    -- 1. Get Match Info
+    SELECT c.competition_id, c.season, m.match_datetime, m.home_club_id, m.away_club_id
+    INTO v_comp_id, v_season, v_match_dt, v_home_club, v_away_club
+    FROM `Match` m
+    JOIN Competition c ON m.competition_id = c.competition_id
+    WHERE m.match_id = NEW.match_id;
+
+    -- 2. Find player club for this match
+    SELECT club_id INTO v_player_club
+    FROM Contract
+    WHERE player_id = NEW.player_id
+      AND start_date <= DATE(v_match_dt) AND end_date > DATE(v_match_dt)
+      AND club_id IN (v_home_club, v_away_club)
+    LIMIT 1;
+
+    IF v_player_club IS NOT NULL THEN
+        -- 3. Club's Last Match DT
+        SELECT MAX(match_datetime) INTO v_club_last_dt
+        FROM `Match`
+        WHERE competition_id = v_comp_id
+          AND (home_club_id = v_player_club OR away_club_id = v_player_club)
+          AND is_completed = 1
+          AND match_datetime < v_match_dt;
+
+        -- 4. Player's Last Match in this Comp/Season
+        SELECT m.match_id, m.match_datetime, l.red_cards, l.yellow_cards
+        INTO v_player_last_match_id, v_player_last_dt, v_red_cards, v_last_match_yellows
+        FROM Lineup l
+        JOIN `Match` m ON l.match_id = m.match_id
+        JOIN Competition c ON m.competition_id = c.competition_id
+        WHERE c.competition_id = v_comp_id
+          AND c.season = v_season
+          AND m.match_datetime < v_match_dt
+          AND m.is_completed = 1
+          AND l.player_id = NEW.player_id
+        ORDER BY m.match_datetime DESC
+        LIMIT 1;
+
+        -- If the player has played before, and hasn't served suspension
+        IF v_player_last_match_id IS NOT NULL AND (v_club_last_dt IS NULL OR v_club_last_dt <= v_player_last_dt) THEN
+            
+            -- Red card check
+            IF v_red_cards > 0 THEN
+                SIGNAL SQLSTATE '45000'
+                    SET MESSAGE_TEXT = 'Suspension error: player is suspended due to a red card in their last match.';
+            END IF;
+
+            -- Yellow card accumulation check
+            SELECT COALESCE(SUM(l.yellow_cards), 0)
+            INTO v_total_yellows
+            FROM Lineup l
+            JOIN `Match` m ON l.match_id = m.match_id
+            JOIN Competition c ON m.competition_id = c.competition_id
+            WHERE c.competition_id = v_comp_id
+              AND c.season = v_season
+              AND m.match_datetime <= v_player_last_dt
+              AND m.is_completed = 1
+              AND l.player_id = NEW.player_id;
+
+            SET v_prev_yellows = v_total_yellows - v_last_match_yellows;
+
+            IF FLOOR(v_total_yellows / 5) > FLOOR(v_prev_yellows / 5) THEN
+                SIGNAL SQLSTATE '45000'
+                    SET MESSAGE_TEXT = 'Suspension error: player is suspended due to yellow card accumulation (5 cards).';
+            END IF;
+        END IF;
+    END IF;
+END$$
+
 DELIMITER ;

@@ -46,21 +46,30 @@ END$$
 
 -- ─────────────────────────────────────────────────────────────
 -- PROCEDURE: register_transfer
---   Handles: Transfer record, new Contract, Permanent termination,
---            market value update for purchases.
---   Trigger trg_contract_rules fires on the Contract INSERT.
+--   transfer_type = contract type: 'Permanent' or 'Loan'
+--   p_to_club_id may be NULL (player released → becomes free agent)
+--
+--   When to_club_id IS NOT NULL:
+--     1. If Permanent: terminate existing active Permanent (set end_date = today)
+--     2. Insert TransferRecord
+--     3. Insert new Contract at to_club
+--     4. For Permanent with fee > 0: update player market_value
+--   When to_club_id IS NULL (release):
+--     1. Terminate active contracts (Permanent and/or Loan)
+--     2. Insert TransferRecord with to_club_id = NULL
+--     3. No new contract created
 -- ─────────────────────────────────────────────────────────────
 DROP PROCEDURE IF EXISTS register_transfer$$
 CREATE PROCEDURE register_transfer(
-    IN  p_player_id     INT,
-    IN  p_from_club_id  INT,
-    IN  p_to_club_id    INT,
-    IN  p_transfer_type ENUM('Free','Purchase','Loan'),
-    IN  p_transfer_fee  DECIMAL(15,2),
-    IN  p_weekly_wage   DECIMAL(10,2),
-    IN  p_contract_end  DATE,
-    OUT p_transfer_id   INT,
-    OUT p_contract_id   INT
+    IN  p_player_id      INT,
+    IN  p_from_club_id   INT,
+    IN  p_to_club_id     INT,
+    IN  p_transfer_type  ENUM('Permanent','Loan'),
+    IN  p_transfer_fee   DECIMAL(15,2),
+    IN  p_weekly_wage    DECIMAL(10,2),
+    IN  p_contract_end   DATE,
+    OUT p_transfer_id    INT,
+    OUT p_contract_id    INT
 )
 BEGIN
     DECLARE v_today DATE DEFAULT CURDATE();
@@ -73,61 +82,137 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Validate transfer fee vs type
-   -- If Permanent transfer (Free/Purchase): terminate existing active Permanent
-    IF p_transfer_type IN ('Free','Purchase') THEN
+    -- ── Release path: to_club_id is NULL ──
+    IF p_to_club_id IS NULL THEN
+        -- Terminate all active contracts (half-open: start <= today < end)
         UPDATE Contract
         SET end_date = v_today
-        WHERE player_id     = p_player_id
-        AND contract_type = 'Permanent'
-        AND v_today >= start_date AND v_today < end_date;
+        WHERE player_id = p_player_id
+          AND start_date <= v_today AND end_date > v_today;
+
+        -- Record the transfer (to_club = NULL means release)
+        INSERT INTO TransferRecord
+            (player_id, from_club_id, to_club_id, transfer_date, transfer_fee, transfer_type)
+        VALUES
+            (p_player_id, p_from_club_id, NULL, v_today, p_transfer_fee, p_transfer_type);
+
+        SET p_transfer_id = LAST_INSERT_ID();
+        SET p_contract_id = NULL;
+
+        COMMIT;
+    ELSE
+        -- ── Normal transfer path ──
+
+        -- If Permanent: terminate existing active Permanent
+        IF p_transfer_type = 'Permanent' THEN
+            UPDATE Contract
+            SET end_date = v_today
+            WHERE player_id     = p_player_id
+              AND contract_type = 'Permanent'
+              AND start_date <= v_today AND end_date > v_today;
+        END IF;
+
+        -- If Loan: terminate existing active Loan (allows loan-to-loan change)
+        IF p_transfer_type = 'Loan' THEN
+            UPDATE Contract
+            SET end_date = v_today
+            WHERE player_id     = p_player_id
+              AND contract_type = 'Loan'
+              AND start_date <= v_today AND end_date > v_today;
+        END IF;
+
+        -- Create transfer record
+        INSERT INTO TransferRecord
+            (player_id, from_club_id, to_club_id, transfer_date, transfer_fee, transfer_type)
+        VALUES
+            (p_player_id, p_from_club_id, p_to_club_id, v_today, p_transfer_fee, p_transfer_type);
+
+        SET p_transfer_id = LAST_INSERT_ID();
+
+        -- Create new contract (trg_contract_rules fires here)
+        INSERT INTO Contract
+            (player_id, club_id, start_date, end_date, weekly_wage, contract_type)
+        VALUES (
+            p_player_id,
+            p_to_club_id,
+            v_today,
+            p_contract_end,
+            p_weekly_wage,
+            p_transfer_type
+        );
+
+        SET p_contract_id = LAST_INSERT_ID();
+
+        -- Update market value for Permanent transfers with fee > 0
+        IF p_transfer_type = 'Permanent' AND p_transfer_fee > 0 THEN
+            UPDATE Player
+            SET market_value = p_transfer_fee
+            WHERE person_id = p_player_id;
+        END IF;
+
+        COMMIT;
+    END IF;
+END$$
+
+-- ─────────────────────────────────────────────────────────────
+-- PROCEDURE: end_loan
+--   Terminates a player's active loan contract and records the
+--   return transfer to the parent (permanent) club.
+--   Enforced at DB level: if no active loan exists → error.
+-- ─────────────────────────────────────────────────────────────
+DROP PROCEDURE IF EXISTS end_loan$$
+CREATE PROCEDURE end_loan(
+    IN  p_player_id    INT,
+    OUT p_transfer_id  INT
+)
+BEGIN
+    DECLARE v_loan_club INT DEFAULT NULL;
+    DECLARE v_perm_club INT DEFAULT NULL;
+    DECLARE v_today     DATE DEFAULT CURDATE();
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    -- Find active loan contract
+    SELECT club_id INTO v_loan_club
+    FROM Contract
+    WHERE player_id     = p_player_id
+      AND contract_type = 'Loan'
+      AND start_date <= v_today AND end_date > v_today
+    LIMIT 1;
+
+    IF v_loan_club IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Player does not have an active loan contract.';
     END IF;
 
-    -- If Permanent transfer: terminate existing Permanent contract for this player.
-    -- Spec §9: "updating its end_date to the new start_date". The active-contract
-    -- check uses an inclusive BETWEEN, so we set end_date one day before the new
-    -- start to guarantee the old permanent is no longer counted as active and the
-    -- trg_contract_rules trigger will accept the new Permanent insert.
-    IF p_transfer_type IN ('Free','Purchase') THEN
-        UPDATE Contract
-        SET end_date = v_today
-        WHERE player_id     = p_player_id
-          AND contract_type = 'Permanent'
-          AND CURDATE() BETWEEN start_date AND end_date;
-    END IF;
+    -- Find parent (permanent) club
+    SELECT club_id INTO v_perm_club
+    FROM Contract
+    WHERE player_id     = p_player_id
+      AND contract_type = 'Permanent'
+      AND start_date <= v_today AND end_date > v_today
+    LIMIT 1;
 
-    -- Create transfer record
+    -- Terminate the loan
+    UPDATE Contract
+    SET end_date = v_today
+    WHERE player_id     = p_player_id
+      AND contract_type = 'Loan'
+      AND start_date <= v_today AND end_date > v_today;
+
+    -- Record the loan return transfer
     INSERT INTO TransferRecord
         (player_id, from_club_id, to_club_id, transfer_date, transfer_fee, transfer_type)
     VALUES
-        (p_player_id, p_from_club_id, p_to_club_id, v_today, p_transfer_fee, p_transfer_type);
+        (p_player_id, v_loan_club, v_perm_club, v_today, 0, 'Loan');
 
     SET p_transfer_id = LAST_INSERT_ID();
-
-    -- Determine contract type from transfer type
-    -- (Free/Purchase → Permanent, Loan → Loan)
-    INSERT INTO Contract
-        (player_id, club_id, start_date, end_date, weekly_wage, contract_type)
-    VALUES (
-        p_player_id,
-        p_to_club_id,
-        v_today,
-        p_contract_end,
-        p_weekly_wage,
-        IF(p_transfer_type = 'Loan', 'Loan', 'Permanent')
-    );
-    -- NOTE: trg_contract_rules fires here and enforces:
-    --   • max 1 Permanent, max 1 Loan
-    --   • Loan requires active Permanent elsewhere
-
-    SET p_contract_id = LAST_INSERT_ID();
-
-    -- Update market value for purchases
-    IF p_transfer_type = 'Purchase' AND p_transfer_fee > 0 THEN
-        UPDATE Player
-        SET market_value = p_transfer_fee
-        WHERE person_id = p_player_id;
-    END IF;
 
     COMMIT;
 END$$

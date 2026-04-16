@@ -142,11 +142,13 @@ def test_starter_limit_exceeded():
     """11 starters already → adding a 12th starter raises error."""
     db = get_db(); cur = db.cursor()
     try:
+        # Match clubs 3 vs 4. Club 3: 1117-1124 (8), Club 4: 1125-1132 (8) = 16 avail.
         _match(cur, 9011, '2027-04-01 20:00:00', 3, 4, stadium=3, ref=1002)
-        for pid in range(1101, 1112):      # players 1101-1111 as starters
+        pids = list(range(1117, 1125)) + list(range(1125, 1128))  # 11 players
+        for pid in pids:
             _lineup(cur, 9011, pid, starter=1, minutes=90, rating=6.0)
         with pytest.raises(mysql.connector.Error, match="[Ss]tarter"):
-            _lineup(cur, 9011, 1112, starter=1, minutes=90, rating=6.0)
+            _lineup(cur, 9011, 1128, starter=1, minutes=90, rating=6.0)
     finally:
         db.rollback(); cur.close(); db.close()
 
@@ -156,7 +158,8 @@ def test_starter_limit_exactly_11_ok():
     db = get_db(); cur = db.cursor()
     try:
         _match(cur, 9012, '2027-04-02 20:00:00', 3, 4, stadium=3, ref=1002)
-        for pid in range(1101, 1112):
+        pids = list(range(1117, 1125)) + list(range(1125, 1128))  # 11 players
+        for pid in pids:
             _lineup(cur, 9012, pid, starter=1, minutes=90, rating=6.0)
     finally:
         db.rollback(); cur.close(); db.close()
@@ -166,12 +169,21 @@ def test_squad_size_exceeded():
     """Squad > 23 → error."""
     db = get_db(); cur = db.cursor()
     try:
-        _match(cur, 9013, '2027-04-03 20:00:00', 5, 6, stadium=4, ref=1003)
-        # Add 23 players (1101-1123), 24th must fail
-        for pid in range(1101, 1124):
+        # Match clubs 1 vs 2. Club 1 has 11 players, Club 2 has 8 = 19 total.
+        # Create temp contracts for 5 extra players (1200-1204) at club 1 to reach 24.
+        _match(cur, 9013, '2027-04-03 20:00:00', 1, 2, stadium=1, ref=1003)
+        for pid in range(1200, 1205):
+            cur.execute("""INSERT INTO Contract (player_id,club_id,contract_type,weekly_wage,start_date,end_date)
+                           VALUES (%s,1,'Permanent',5000,'2025-01-01','2028-01-01')""", (pid,))
+        # Club 1: 1101-1108, 1258-1260 (11) + 1200-1204 (5) = 16
+        # Club 2: 1109-1116 (8) → total 24
+        squad = (list(range(1101, 1109)) + [1258, 1259, 1260] + list(range(1200, 1205))
+                 + list(range(1109, 1116)))  # 23 players
+        for pid in squad:
             _lineup(cur, 9013, pid, minutes=0, rating=5.0)
+        # 24th: use 1116 (club 2)
         with pytest.raises(mysql.connector.Error, match="[Ss]quad"):
-            _lineup(cur, 9013, 1124, minutes=0, rating=5.0)
+            _lineup(cur, 9013, 1116, minutes=0, rating=5.0)
     finally:
         db.rollback(); cur.close(); db.close()
 
@@ -393,34 +405,23 @@ def test_negative_transfer_fee():
                 INSERT INTO TransferRecord
                     (player_id, from_club_id, to_club_id, transfer_date,
                      transfer_fee, transfer_type)
-                VALUES (6, 1, 3, '2027-01-01', -500, 'Purchase')
+                VALUES (1101, 1, 3, '2027-01-01', -500, 'Permanent')
             """)
     finally:
         db.rollback(); cur.close(); db.close()
 
 
-def test_free_transfer_nonzero_fee_via_procedure():
-    """register_transfer: Free type with fee > 0 → procedure error."""
+def test_release_transfer_null_to_club():
+    """to_club_id = NULL → creates transfer record for release."""
     db = get_db(); cur = db.cursor()
     try:
-        with pytest.raises(mysql.connector.Error, match="[Ff]ree"):
-            cur.callproc("register_transfer",
-                         [6, 1, 3, 'Free', 1000.00, 5000.00, '2027-12-31', 0, 0])
-    finally:
-        db.rollback(); cur.close(); db.close()
-
-
-def test_transfer_from_club_equals_to_club():
-    """from_club_id = to_club_id → CHECK constraint error."""
-    db = get_db(); cur = db.cursor()
-    try:
-        with pytest.raises(mysql.connector.Error):
-            cur.execute("""
-                INSERT INTO TransferRecord
-                    (player_id, from_club_id, to_club_id, transfer_date,
-                     transfer_fee, transfer_type)
-                VALUES (6, 2, 2, '2027-01-01', 0, 'Free')
-            """)
+        cur.execute("""
+            INSERT INTO TransferRecord
+                (player_id, from_club_id, to_club_id, transfer_date,
+                 transfer_fee, transfer_type)
+            VALUES (1101, 1, NULL, '2027-01-01', 0, 'Permanent')
+        """)
+        # Should succeed — release is allowed
     finally:
         db.rollback(); cur.close(); db.close()
 

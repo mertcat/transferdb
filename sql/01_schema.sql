@@ -142,21 +142,18 @@ CREATE TABLE IF NOT EXISTS Contract (
 
 -- ─────────────────────────────────────────
 -- TRANSFER RECORD
+-- transfer_type mirrors contract_type: Permanent or Loan
+-- to_club_id is NULL when a player is released (becomes free agent)
 -- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS TransferRecord (
     transfer_id   INT             NOT NULL AUTO_INCREMENT,
     player_id     INT             NOT NULL,
     from_club_id  INT NULL,
-    to_club_id    INT             NOT NULL,
+    to_club_id    INT NULL,
     transfer_date DATE            NOT NULL,
-    transfer_fee  DECIMAL(15,2)   NOT NULL,
-    transfer_type ENUM('Free','Purchase','Loan') NOT NULL,
+    transfer_fee  DECIMAL(15,2)   NOT NULL CHECK (transfer_fee >= 0),
+    transfer_type ENUM('Permanent','Loan') NOT NULL,
     PRIMARY KEY (transfer_id),
-    CHECK (from_club_id <> to_club_id),
-    CHECK (
-        (transfer_type = 'Free'     AND transfer_fee = 0)
-     OR (transfer_type IN ('Purchase','Loan') AND transfer_fee >= 0)
-    ),
     FOREIGN KEY (player_id)    REFERENCES Player(person_id),
     FOREIGN KEY (from_club_id) REFERENCES Club(club_id),
     FOREIGN KEY (to_club_id)   REFERENCES Club(club_id)

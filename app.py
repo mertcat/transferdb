@@ -412,62 +412,117 @@ def dbm_schedule_match():
 def dbm_register_transfer():
     db = get_db()
     if request.method == "POST":
-        player_id    = request.form.get("player_id")
-        to_club_id   = request.form.get("to_club_id")
-        t_type       = request.form.get("transfer_type")
-        t_fee        = request.form.get("transfer_fee", "0")
-        wage         = request.form.get("weekly_wage")
-        contract_end = request.form.get("contract_end")
+        action    = request.form.get("action")
+        player_id = request.form.get("player_id")
 
-        # Derive from_club from the player's active permanent contract (NULL if free agent)
-        cur = db.cursor(dictionary=True)
-        cur.execute("""
-            SELECT club_id FROM Contract
-            WHERE player_id = %s AND contract_type = 'Permanent'
-              AND CURDATE() BETWEEN start_date AND end_date
-            LIMIT 1
-        """, (player_id,))
-        row = cur.fetchone()
-        from_club_id = row["club_id"] if row else None
-        cur.close()
+        if action == "end_loan":
+            cur = db.cursor()
+            try:
+                cur.callproc("end_loan", [player_id, 0])
+                db.commit()
+                flash("Loan ended successfully. Player returned to parent club.", "success")
+            except mysql.connector.Error as err:
+                db.rollback()
+                flash(f"Failed to end loan: {friendly_error(err)}", "danger")
+            finally:
+                cur.close()
 
-        cur = db.cursor()
-        try:
-            cur.callproc("register_transfer",
-                         [player_id, from_club_id, to_club_id,
-                          t_type, t_fee, wage, contract_end, 0, 0])
-            db.commit()
-            flash("Transfer registered successfully.", "success")
-        except mysql.connector.Error as err:
-            db.rollback()
-            flash(f"Transfer failed: {friendly_error(err)}", "danger")
-        finally:
+        elif action == "release":
+            cur = db.cursor(dictionary=True)
+            cur.execute("""
+                SELECT club_id FROM Contract
+                WHERE player_id = %s AND contract_type = 'Permanent'
+                  AND start_date <= CURDATE() AND end_date > CURDATE()
+                LIMIT 1
+            """, (player_id,))
+            row = cur.fetchone()
+            from_club_id = row["club_id"] if row else None
             cur.close()
+
+            cur = db.cursor()
+            try:
+                cur.callproc("register_transfer",
+                             [player_id, from_club_id, None,
+                              'Permanent', 0, 0, '9999-12-31', 0, 0])
+                db.commit()
+                flash("Player released successfully (all contracts terminated).", "success")
+            except mysql.connector.Error as err:
+                db.rollback()
+                flash(f"Release failed: {friendly_error(err)}", "danger")
+            finally:
+                cur.close()
+
+        elif action in ("permanent_transfer", "loan_out"):
+            to_club_id   = request.form.get("to_club_id") or None
+            t_fee        = request.form.get("transfer_fee", "0")
+            wage         = request.form.get("weekly_wage")
+            contract_end = request.form.get("contract_end")
+            t_type       = "Permanent" if action == "permanent_transfer" else "Loan"
+
+            # Derive from_club from the player's active permanent contract
+            cur = db.cursor(dictionary=True)
+            cur.execute("""
+                SELECT club_id FROM Contract
+                WHERE player_id = %s AND contract_type = 'Permanent'
+                  AND start_date <= CURDATE() AND end_date > CURDATE()
+                LIMIT 1
+            """, (player_id,))
+            row = cur.fetchone()
+            from_club_id = row["club_id"] if row else None
+            cur.close()
+
+            cur = db.cursor()
+            try:
+                cur.callproc("register_transfer",
+                             [player_id, from_club_id, to_club_id,
+                              t_type, t_fee, wage, contract_end, 0, 0])
+                db.commit()
+                label = "Permanent transfer" if t_type == "Permanent" else "Loan"
+                flash(f"{label} registered successfully.", "success")
+            except mysql.connector.Error as err:
+                db.rollback()
+                flash(f"Transfer failed: {friendly_error(err)}", "danger")
+            finally:
+                cur.close()
+
         return redirect(url_for("dbm_register_transfer"))
 
-    # GET
+    # ── GET ──
     cur = db.cursor(dictionary=True)
     cur.execute("""
-        SELECT p.person_id, CONCAT(pe.name,' ',pe.surname) AS full_name
+        SELECT p.person_id,
+               CONCAT(pe.name,' ',pe.surname, ' (ID: ', p.person_id, ')') AS full_name
         FROM Player p JOIN Person pe ON p.person_id = pe.person_id
-        ORDER BY pe.surname
+        ORDER BY pe.surname, pe.name
     """)
     players = cur.fetchall()
     cur.execute("SELECT club_id, club_name FROM Club ORDER BY club_name")
     clubs = cur.fetchall()
-    # Build player → current permanent club mapping for auto-fill
+
+    # Build player → {permanent: {...}, loan: {...}} mapping
     cur.execute("""
-        SELECT ct.player_id, ct.club_id, c.club_name
+        SELECT ct.player_id, ct.club_id, c.club_name, ct.contract_type,
+               ct.weekly_wage, ct.end_date
         FROM Contract ct
         JOIN Club c ON c.club_id = ct.club_id
-        WHERE ct.contract_type = 'Permanent'
-          AND CURDATE() BETWEEN ct.start_date AND ct.end_date
+        WHERE ct.start_date <= CURDATE() AND ct.end_date > CURDATE()
     """)
-    player_clubs = {str(r['player_id']): {'club_id': r['club_id'], 'club_name': r['club_name']}
-                    for r in cur.fetchall()}
+    player_contracts = {}
+    for r in cur.fetchall():
+        pid = str(r['player_id'])
+        if pid not in player_contracts:
+            player_contracts[pid] = {'permanent': None, 'loan': None}
+        ctype = r['contract_type'].lower()
+        player_contracts[pid][ctype] = {
+            'club_id': r['club_id'],
+            'club_name': r['club_name'],
+            'weekly_wage': str(r['weekly_wage']),
+            'end_date': str(r['end_date'])
+        }
     cur.close()
     return render_template("dbm/register_transfer.html",
-                           players=players, clubs=clubs, player_clubs=player_clubs)
+                           players=players, clubs=clubs,
+                           player_contracts=player_contracts)
 
 
 @app.route("/dbm/competition/create", methods=["GET", "POST"])
@@ -554,7 +609,7 @@ def player_home():
         JOIN Player pl ON pl.person_id = pe.person_id
         LEFT JOIN Contract ct ON ct.player_id = pe.person_id
             AND ct.contract_type = 'Permanent'
-            AND CURDATE() BETWEEN ct.start_date AND ct.end_date
+            AND ct.start_date <= CURDATE() AND ct.end_date > CURDATE()
         LEFT JOIN Club c ON c.club_id = ct.club_id
         WHERE pe.person_id = %s
     """, (pid,))
@@ -778,6 +833,89 @@ def manager_submit_squad(match_id):
     club_id = _get_manager_club_id(pid)
     db      = get_db()
 
+    # First, get match info to fetch comp_id, season, match_datetime
+    cur = db.cursor(dictionary=True)
+    cur.execute("""
+        SELECT ch.club_name AS home_club, ca.club_name AS away_club,
+               m.match_datetime, comp.competition_id, comp.name AS competition, comp.season,
+               s.stadium_name
+        FROM `Match` m
+        JOIN Club ch ON ch.club_id = m.home_club_id
+        JOIN Club ca ON ca.club_id = m.away_club_id
+        JOIN Competition comp ON comp.competition_id = m.competition_id
+        JOIN Stadium s ON s.stadium_id = m.stadium_id
+        WHERE m.match_id = %s
+    """, (match_id,))
+    match_info = cur.fetchone()
+
+    # Determine eligible players for GET, or all players for POST validation
+    cur.execute("""
+        SELECT p.person_id, CONCAT(pe.name,' ',pe.surname) AS full_name,
+               pl.main_position
+        FROM Contract ct
+        JOIN Player pl  ON pl.person_id  = ct.player_id
+        JOIN Person pe  ON pe.person_id  = ct.player_id
+        JOIN (SELECT person_id FROM Player) p ON p.person_id = ct.player_id
+        WHERE ct.club_id = %s
+          AND ct.start_date <= CURDATE() AND ct.end_date > CURDATE()
+        ORDER BY pe.surname
+    """, (club_id,))
+    players = cur.fetchall()
+    
+    # Calculate Suspensions
+    suspended_players = set()
+    if players and match_info:
+        comp_id = match_info['competition_id']
+        season = match_info['season']
+        match_dt = match_info['match_datetime']
+
+        cur.execute("""
+            SELECT MAX(match_datetime) AS last_dt
+            FROM `Match`
+            WHERE competition_id = %s
+              AND (home_club_id = %s OR away_club_id = %s)
+              AND is_completed = 1
+              AND match_datetime < %s
+        """, (comp_id, club_id, club_id, match_dt))
+        row = cur.fetchone()
+        club_last_dt = row['last_dt'] if row else None
+
+        pids = [p['person_id'] for p in players]
+        format_strings = ','.join(['%s'] * len(pids))
+        cur.execute(f"""
+            SELECT l.player_id, m.match_datetime, l.red_cards, l.yellow_cards
+            FROM Lineup l
+            JOIN `Match` m ON l.match_id = m.match_id
+            JOIN Competition c ON m.competition_id = c.competition_id
+            WHERE c.competition_id = %s
+              AND c.season = %s
+              AND m.match_datetime < %s
+              AND m.is_completed = 1
+              AND l.player_id IN ({format_strings})
+            ORDER BY m.match_datetime ASC
+        """, (comp_id, season, match_dt) + tuple(pids))
+        
+        from collections import defaultdict
+        p_hist = defaultdict(list)
+        for h in cur.fetchall():
+            p_hist[h['player_id']].append(h)
+            
+        for p_id, matches in p_hist.items():
+            if not matches:
+                continue
+            last_m = matches[-1]
+            if club_last_dt and club_last_dt > last_m['match_datetime']:
+                continue
+            if last_m['red_cards'] > 0:
+                suspended_players.add(p_id)
+                continue
+            total_yellows = sum(m['yellow_cards'] for m in matches)
+            prev_yellows = total_yellows - last_m['yellow_cards']
+            if (total_yellows // 5) > (prev_yellows // 5):
+                suspended_players.add(p_id)
+    
+    cur.close()
+
     if request.method == "POST":
         player_ids  = request.form.getlist("player_ids")
         starter_ids = set(request.form.getlist("starter_ids"))
@@ -793,7 +931,6 @@ def manager_submit_squad(match_id):
         try:
             for pid_str in player_ids:
                 is_starter = 1 if pid_str in starter_ids else 0
-                # Minimal insertion – stats submitted by referee later
                 cur.execute("""
                     INSERT INTO Lineup
                         (match_id, player_id, is_starter, minutes_played,
@@ -810,35 +947,9 @@ def manager_submit_squad(match_id):
             cur.close()
         return redirect(url_for("manager_fixtures"))
 
-    # GET – eligible players (active contract with this club, not on loan to parent)
-    cur = db.cursor(dictionary=True)
-    cur.execute("""
-        SELECT p.person_id, CONCAT(pe.name,' ',pe.surname) AS full_name,
-               pl.main_position
-        FROM Contract ct
-        JOIN Player pl  ON pl.person_id  = ct.player_id
-        JOIN Person pe  ON pe.person_id  = ct.player_id
-        JOIN (SELECT person_id FROM Player) p ON p.person_id = ct.player_id
-        WHERE ct.club_id = %s
-          AND CURDATE() BETWEEN ct.start_date AND ct.end_date
-        ORDER BY pe.surname
-    """, (club_id,))
-    players = cur.fetchall()
-    cur.execute("""
-        SELECT ch.club_name AS home_club, ca.club_name AS away_club,
-               m.match_datetime, comp.name AS competition, comp.season,
-               s.stadium_name
-        FROM `Match` m
-        JOIN Club ch ON ch.club_id = m.home_club_id
-        JOIN Club ca ON ca.club_id = m.away_club_id
-        JOIN Competition comp ON comp.competition_id = m.competition_id
-        JOIN Stadium s ON s.stadium_id = m.stadium_id
-        WHERE m.match_id = %s
-    """, (match_id,))
-    match_info = cur.fetchone()
-    cur.close()
     return render_template("manager/submit_squad.html",
-                           match_id=match_id, players=players, match_info=match_info)
+                           match_id=match_id, players=players, match_info=match_info,
+                           suspended_players=suspended_players)
 
 
 @app.route("/manager/standings")
@@ -1016,7 +1127,7 @@ def manager_squad_stats():
                 GROUP BY l.player_id
             ) agg ON agg.player_id = ct.player_id
             WHERE ct.club_id = %s
-              AND CURDATE() BETWEEN ct.start_date AND ct.end_date
+              AND ct.start_date <= CURDATE() AND ct.end_date > CURDATE()
             GROUP BY pe.person_id, pe.name, pe.surname, pe.date_of_birth,
                      pl.main_position, pl.strong_foot, pl.market_value,
                      pl.height, pe.nationality,
@@ -1079,7 +1190,7 @@ def manager_leaderboard():
             JOIN Person pe       ON pe.person_id = l.player_id
             LEFT JOIN Contract ct ON ct.player_id = l.player_id
                 AND ct.contract_type = 'Permanent'
-                AND CURDATE() BETWEEN ct.start_date AND ct.end_date
+                AND ct.start_date <= CURDATE() AND ct.end_date > CURDATE()
             LEFT JOIN Club c     ON c.club_id = ct.club_id
             WHERE m.competition_id = %s
             GROUP BY l.player_id, pe.name, pe.surname, c.club_name
