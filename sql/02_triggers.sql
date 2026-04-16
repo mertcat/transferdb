@@ -181,7 +181,13 @@ FOR EACH ROW
 BEGIN
     DECLARE existing_club INT DEFAULT 0;
 
-    IF NEW.manager_id IS NOT NULL AND NEW.manager_id <> OLD.manager_id THEN
+    IF NEW.manager_id IS NOT NULL AND (OLD.manager_id IS NULL OR NEW.manager_id <> OLD.manager_id) THEN
+        -- Club must not already have a manager (release first)
+        IF OLD.manager_id IS NOT NULL THEN
+            SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'Manager assignment error: this club already has a manager. Release the current manager first.';
+        END IF;
+
         -- Check new manager not already assigned elsewhere
         SELECT COUNT(*) INTO existing_club
         FROM Club

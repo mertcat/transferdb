@@ -1,28 +1,92 @@
 {% extends "base.html" %}
 {% block title %} – Assign Manager{% endblock %}
 {% block content %}
-<h1>Assign Manager to Club</h1>
-<div class="card" style="max-width:460px;">
-    <form method="POST">
-        <div class="form-group">
-            <label>Club</label>
-            <select name="club_id" required>
-                <option value="">Select club…</option>
-                {% for c in clubs %}
-                <option value="{{ c.club_id }}">{{ c.club_name }}</option>
-                {% endfor %}
-            </select>
+<h1>Manage Club Manager</h1>
+
+<div class="card" style="max-width:500px;">
+    <div class="form-group">
+        <label>Select Club</label>
+        <select id="clubSelect" onchange="onClubChange(this.value)">
+            <option value="">Select club…</option>
+            {% for c in clubs %}
+            <option value="{{ c.club_id }}">{{ c.club_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Current manager display (hidden until club selected) -->
+    <div id="managerSection" style="display:none;">
+        <div id="currentManager" style="margin-bottom:16px; padding:12px 14px;
+             background:#21262d; border:1px solid var(--border); border-radius:6px; font-size:13px;">
         </div>
-        <div class="form-group">
-            <label>Manager</label>
-            <select name="manager_id" required>
-                <option value="">Select manager…</option>
-                {% for m in managers %}
-                <option value="{{ m.person_id }}">{{ m.full_name }}</option>
-                {% endfor %}
-            </select>
+
+        <!-- Release button (shown when club has a manager) -->
+        <div id="releaseForm" style="display:none; margin-bottom:16px;">
+            <form method="POST" onsubmit="return confirm('Release this manager from the club?');">
+                <input type="hidden" name="action" value="release">
+                <input type="hidden" name="club_id" id="releaseClubId">
+                <button type="submit" class="btn btn-danger" style="width:100%;">Release Manager</button>
+            </form>
         </div>
-        <button type="submit" class="btn btn-primary">Assign</button>
-    </form>
+
+        <!-- Assign form (always visible — trigger enforces constraints) -->
+        <div id="assignForm">
+            <form method="POST">
+                <input type="hidden" name="action" value="assign">
+                <input type="hidden" name="club_id" id="assignClubId">
+                <div class="form-group">
+                    <label>Assign Manager</label>
+                    <select name="manager_id" id="managerSelect" required onchange="onManagerChange(this.value)">
+                        <option value="">Select manager…</option>
+                        {% for m in managers %}
+                        <option value="{{ m.person_id }}">{{ m.full_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div id="managerClubInfo" style="margin-top:6px; font-size:12px; color:var(--muted);"></div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;">Assign Manager</button>
+            </form>
+        </div>
+    </div>
 </div>
+
+<script>
+const cm = {{ club_managers | tojson }};
+const mc = {{ manager_clubs | tojson }};
+
+function onManagerChange(mid) {
+    const info = document.getElementById('managerClubInfo');
+    if (!mid) { info.textContent = ''; return; }
+    const club = mc[mid];
+    if (club) {
+        info.innerHTML = 'Currently at: <strong style="color:var(--text);">' + club + '</strong>';
+    } else {
+        info.innerHTML = '<span style="color:var(--warn);">Unassigned (no club)</span>';
+    }
+}
+
+function onClubChange(cid) {
+    const section = document.getElementById('managerSection');
+    if (!cid) { section.style.display = 'none'; return; }
+    section.style.display = '';
+
+    document.getElementById('releaseClubId').value = cid;
+    document.getElementById('assignClubId').value  = cid;
+
+    const info        = cm[cid];
+    const display     = document.getElementById('currentManager');
+    const releaseForm = document.getElementById('releaseForm');
+
+    if (info) {
+        display.innerHTML =
+            '<span style="color:var(--muted);">Current Manager:</span> ' +
+            '<strong style="color:#fff;">' + info.manager_name + '</strong>';
+        releaseForm.style.display = '';
+    } else {
+        display.innerHTML =
+            '<span style="color:var(--warn);">No manager assigned</span>';
+        releaseForm.style.display = 'none';
+    }
+}
+</script>
 {% endblock %}

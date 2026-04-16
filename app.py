@@ -556,36 +556,66 @@ def dbm_create_competition():
 def dbm_assign_manager():
     db = get_db()
     if request.method == "POST":
-        club_id    = request.form.get("club_id")
-        manager_id = request.form.get("manager_id")
+        action  = request.form.get("action")
+        club_id = request.form.get("club_id")
         cur = db.cursor()
         try:
-            # Trigger trg_club_manager_unique fires here
-            cur.execute(
-                "UPDATE Club SET manager_id = %s WHERE club_id = %s",
-                (manager_id, club_id)
-            )
-            db.commit()
-            flash("Manager assigned.", "success")
+            if action == "release":
+                cur.execute(
+                    "UPDATE Club SET manager_id = NULL WHERE club_id = %s",
+                    (club_id,)
+                )
+                db.commit()
+                flash("Manager released from club.", "success")
+            elif action == "assign":
+                manager_id = request.form.get("manager_id")
+                # Trigger trg_club_manager_unique fires here
+                cur.execute(
+                    "UPDATE Club SET manager_id = %s WHERE club_id = %s",
+                    (manager_id, club_id)
+                )
+                db.commit()
+                flash("Manager assigned.", "success")
         except mysql.connector.Error as err:
             db.rollback()
-            flash(f"Could not assign manager: {friendly_error(err)}", "danger")
+            flash(f"Could not update manager: {friendly_error(err)}", "danger")
         finally:
             cur.close()
         return redirect(url_for("dbm_assign_manager"))
 
+    # GET
     cur = db.cursor(dictionary=True)
-    cur.execute("SELECT club_id, club_name FROM Club ORDER BY club_name")
-    clubs = cur.fetchall()
     cur.execute("""
-        SELECT m.person_id, CONCAT(p.name,' ',p.surname) AS full_name
-        FROM Manager m JOIN Person p ON m.person_id = p.person_id
+        SELECT c.club_id, c.club_name, c.manager_id,
+               CONCAT(p.name, ' ', p.surname) AS manager_name
+        FROM Club c
+        LEFT JOIN Person p ON c.manager_id = p.person_id
+        ORDER BY c.club_name
+    """)
+    clubs = cur.fetchall()
+    # Build club → manager mapping for JS
+    club_managers = {}
+    for c in clubs:
+        club_managers[str(c['club_id'])] = {
+            'manager_id': c['manager_id'],
+            'manager_name': c['manager_name']
+        } if c['manager_id'] else None
+    cur.execute("""
+        SELECT m.person_id, CONCAT(p.name,' ',p.surname) AS full_name,
+               c.club_name AS current_club
+        FROM Manager m
+        JOIN Person p ON m.person_id = p.person_id
+        LEFT JOIN Club c ON c.manager_id = m.person_id
         ORDER BY p.surname
     """)
     managers = cur.fetchall()
+    # Build manager → current club mapping for JS
+    manager_clubs = {str(m['person_id']): m['current_club'] for m in managers}
     cur.close()
     return render_template("dbm/assign_manager.html",
-                           clubs=clubs, managers=managers)
+                           clubs=clubs, managers=managers,
+                           club_managers=club_managers,
+                           manager_clubs=manager_clubs)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
