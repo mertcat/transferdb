@@ -142,8 +142,7 @@ BEGIN
     INTO permanent_count, loan_count
     FROM Contract
     WHERE player_id = NEW.player_id
-      AND CURDATE() BETWEEN start_date AND end_date;
-
+      AND CURDATE() >= start_date AND CURDATE() < end_date;
     IF NEW.contract_type = 'Permanent' THEN
         IF permanent_count >= 1 THEN
             SIGNAL SQLSTATE '45000'

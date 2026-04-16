@@ -74,9 +74,13 @@ BEGIN
     START TRANSACTION;
 
     -- Validate transfer fee vs type
-    IF p_transfer_type = 'Free' AND p_transfer_fee <> 0 THEN
-        SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Transfer error: Free transfers must have fee = 0.';
+   -- If Permanent transfer (Free/Purchase): terminate existing active Permanent
+    IF p_transfer_type IN ('Free','Purchase') THEN
+        UPDATE Contract
+        SET end_date = v_today
+        WHERE player_id     = p_player_id
+        AND contract_type = 'Permanent'
+        AND v_today >= start_date AND v_today < end_date;
     END IF;
 
     -- If Permanent transfer: terminate existing Permanent contract for this player.
