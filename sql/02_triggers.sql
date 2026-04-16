@@ -163,7 +163,7 @@ BEGIN
         WHERE player_id     = NEW.player_id
           AND contract_type = 'Permanent'
           AND club_id      <> NEW.club_id
-          AND CURDATE() BETWEEN start_date AND end_date;
+          AND CURDATE() >= start_date AND CURDATE() < end_date;
 
         IF parent_count = 0 THEN
             SIGNAL SQLSTATE '45000'
@@ -244,5 +244,41 @@ BEGIN
         END IF;
     END IF;
 END$$
+-- ─────────────────────────────────────────────────────────────
+-- TRIGGER 7: Enforce that only eligible players can be added to a match lineup
+--   Rule:
+--     • A player can appear in Lineup(match_id, player_id) only if they have
+--       an ACTIVE contract (Permanent or Loan) with either the home club or
+--       the away club of that match (on current date).
+--   Purpose:
+--     • Prevent selecting players outside the match squad/active roster.
+--     • Enforces the "active contract required to be in squad" constraint at DB level.
+-- ─────────────────────────────────────────────────────────────
 
+DROP TRIGGER IF EXISTS trg_lineup_requires_active_contract$$
+CREATE TRIGGER trg_lineup_requires_active_contract
+BEFORE INSERT ON Lineup
+FOR EACH ROW
+BEGIN
+    DECLARE v_home INT;
+    DECLARE v_away INT;
+    DECLARE v_cnt  INT DEFAULT 0;
+
+    SELECT home_club_id, away_club_id
+    INTO v_home, v_away
+    FROM `Match`
+    WHERE match_id = NEW.match_id;
+
+    -- player must have an active contract with either home or away club
+    SELECT COUNT(*) INTO v_cnt
+    FROM Contract
+    WHERE player_id = NEW.player_id
+      AND CURDATE() BETWEEN start_date AND end_date
+      AND club_id IN (v_home, v_away);
+
+    IF v_cnt = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Lineup error: player must have an active contract with one of the clubs in this match.';
+    END IF;
+END$$
 DELIMITER ;

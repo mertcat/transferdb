@@ -86,7 +86,7 @@ BEGIN
     -- trg_contract_rules trigger will accept the new Permanent insert.
     IF p_transfer_type IN ('Free','Purchase') THEN
         UPDATE Contract
-        SET end_date = v_today - INTERVAL 1 DAY
+        SET end_date = v_today
         WHERE player_id     = p_player_id
           AND contract_type = 'Permanent'
           AND CURDATE() BETWEEN start_date AND end_date;
