@@ -1,14 +1,10 @@
--- ============================================================
--- TransferDB Stored Procedures
--- ============================================================
-
 DELIMITER $$
 
--- ─────────────────────────────────────────────────────────────
+
+
 -- PROCEDURE: schedule_match
---   Validates all business rules and inserts a new match.
---   The INSERT will also fire trg_match_no_overlap.
--- ─────────────────────────────────────────────────────────────
+-- Validates all business rules and inserts a new match.
+
 DROP PROCEDURE IF EXISTS schedule_match$$
 CREATE PROCEDURE schedule_match(
     IN  p_datetime       DATETIME,
@@ -44,21 +40,12 @@ BEGIN
     COMMIT;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
 -- PROCEDURE: register_transfer
 --   transfer_type = contract type: 'Permanent' or 'Loan'
 --   p_to_club_id may be NULL (player released → becomes free agent)
---
---   When to_club_id IS NOT NULL:
---     1. If Permanent: terminate existing active Permanent (set end_date = today)
---     2. Insert TransferRecord
---     3. Insert new Contract at to_club
---     4. For Permanent with fee > 0: update player market_value
---   When to_club_id IS NULL (release):
---     1. Terminate active contracts (Permanent and/or Loan)
---     2. Insert TransferRecord with to_club_id = NULL
---     3. No new contract created
--- ─────────────────────────────────────────────────────────────
+
 DROP PROCEDURE IF EXISTS register_transfer$$
 CREATE PROCEDURE register_transfer(
     IN  p_player_id      INT,
@@ -154,12 +141,12 @@ BEGIN
     END IF;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
 -- PROCEDURE: end_loan
 --   Terminates a player's active loan contract and records the
 --   return transfer to the parent (permanent) club.
 --   Enforced at DB level: if no active loan exists → error.
--- ─────────────────────────────────────────────────────────────
 DROP PROCEDURE IF EXISTS end_loan$$
 CREATE PROCEDURE end_loan(
     IN  p_player_id    INT,
@@ -217,10 +204,10 @@ BEGIN
     COMMIT;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
 -- PROCEDURE: submit_match_result
 --   Only the assigned referee may submit; match time must have passed.
--- ─────────────────────────────────────────────────────────────
+
 DROP PROCEDURE IF EXISTS submit_match_result$$
 CREATE PROCEDURE submit_match_result(
     IN p_match_id    INT,

@@ -1,11 +1,3 @@
-"""
-TransferDB – Flask Backend
-CMPE 321 Spring 2026
-
-Requirements:
-    pip install flask mysql-connector-python bcrypt
-"""
-
 import re
 import bcrypt
 import mysql.connector

@@ -1,14 +1,7 @@
--- ============================================================
--- TransferDB Schema
--- CMPE 321 – Spring 2026
--- ============================================================
-
 SET FOREIGN_KEY_CHECKS = 0;
 SET SQL_MODE = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO';
 
--- ─────────────────────────────────────────
--- USERS (login / role dispatch)
--- ─────────────────────────────────────────
+-- APP USERS
 CREATE TABLE IF NOT EXISTS AppUser (
     username     VARCHAR(50)  NOT NULL,
     password     VARCHAR(255) NOT NULL,   -- bcrypt hash
@@ -17,9 +10,8 @@ CREATE TABLE IF NOT EXISTS AppUser (
     PRIMARY KEY (username)
 );
 
--- ─────────────────────────────────────────
--- PERSON (super-type)
--- ─────────────────────────────────────────
+
+-- PERSON
 CREATE TABLE IF NOT EXISTS Person (
     person_id     INT          NOT NULL AUTO_INCREMENT,
     name          VARCHAR(100) NOT NULL,
@@ -29,9 +21,8 @@ CREATE TABLE IF NOT EXISTS Person (
     PRIMARY KEY (person_id)
 );
 
--- ─────────────────────────────────────────
--- SUB-TYPES
--- ─────────────────────────────────────────
+
+-- SUB-TYPES OF PERSON
 CREATE TABLE IF NOT EXISTS Player (
     person_id    INT             NOT NULL,
     market_value DECIMAL(15,2)   NOT NULL CHECK (market_value > 0),
@@ -58,9 +49,7 @@ CREATE TABLE IF NOT EXISTS Referee (
     FOREIGN KEY (person_id) REFERENCES Person(person_id)
 );
 
--- ─────────────────────────────────────────
 -- STADIUM
--- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS Stadium (
     stadium_id   INT          NOT NULL AUTO_INCREMENT,
     stadium_name VARCHAR(150) NOT NULL,
@@ -69,9 +58,8 @@ CREATE TABLE IF NOT EXISTS Stadium (
     PRIMARY KEY (stadium_id)
 );
 
--- ─────────────────────────────────────────
--- CLUB  (manager_id nullable to allow temp no-manager)
--- ─────────────────────────────────────────
+
+-- CLUB
 CREATE TABLE IF NOT EXISTS Club (
     club_id         INT          NOT NULL AUTO_INCREMENT,
     club_name       VARCHAR(150) NOT NULL,
@@ -86,9 +74,8 @@ CREATE TABLE IF NOT EXISTS Club (
     FOREIGN KEY (manager_id)  REFERENCES Manager(person_id)
 );
 
--- ─────────────────────────────────────────
+
 -- COMPETITION
--- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS Competition (
     competition_id   INT          NOT NULL AUTO_INCREMENT,
     name             VARCHAR(100) NOT NULL,
@@ -99,9 +86,8 @@ CREATE TABLE IF NOT EXISTS Competition (
     UNIQUE (name, season)
 );
 
--- ─────────────────────────────────────────
+
 -- MATCH
--- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS `Match` (
     match_id        INT      NOT NULL AUTO_INCREMENT,
     match_datetime  DATETIME NOT NULL,
@@ -123,9 +109,8 @@ CREATE TABLE IF NOT EXISTS `Match` (
     FOREIGN KEY (referee_id)     REFERENCES Referee(person_id)
 );
 
--- ─────────────────────────────────────────
+
 -- CONTRACT
--- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS Contract (
     contract_id   INT             NOT NULL AUTO_INCREMENT,
     player_id     INT             NOT NULL,
@@ -140,11 +125,8 @@ CREATE TABLE IF NOT EXISTS Contract (
     FOREIGN KEY (club_id)   REFERENCES Club(club_id)
 );
 
--- ─────────────────────────────────────────
+
 -- TRANSFER RECORD
--- transfer_type mirrors contract_type: Permanent or Loan
--- to_club_id is NULL when a player is released (becomes free agent)
--- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS TransferRecord (
     transfer_id   INT             NOT NULL AUTO_INCREMENT,
     player_id     INT             NOT NULL,
@@ -160,9 +142,8 @@ CREATE TABLE IF NOT EXISTS TransferRecord (
     FOREIGN KEY (to_club_id)   REFERENCES Club(club_id)
 );
 
--- ─────────────────────────────────────────
+
 -- LINEUP  (match participation & stats)
--- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS Lineup (
     match_id         INT            NOT NULL,
     player_id        INT            NOT NULL,

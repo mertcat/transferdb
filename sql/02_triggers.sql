@@ -1,14 +1,7 @@
--- ============================================================
--- TransferDB Triggers
--- ALL CONSTRAINTS ENFORCED AT DATABASE LEVEL
--- ============================================================
-
 DELIMITER $$
 
--- ─────────────────────────────────────────────────────────────
+
 -- TRIGGER 1: Prevent match scheduling conflicts (120-minute rule)
---            Fires BEFORE INSERT on Match
--- ─────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_match_no_overlap$$
 CREATE TRIGGER trg_match_no_overlap
 BEFORE INSERT ON `Match`
@@ -67,9 +60,9 @@ BEGIN
     END IF;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
 -- TRIGGER 2: Enforce max 11 starters when inserting lineup rows
--- ─────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_lineup_starter_limit$$
 CREATE TRIGGER trg_lineup_starter_limit
 BEFORE INSERT ON Lineup
@@ -121,9 +114,9 @@ BEGIN
     END IF;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
 -- TRIGGER 3: Enforce attendance <= stadium capacity on result submission
--- ─────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_match_attendance_capacity$$
 CREATE TRIGGER trg_match_attendance_capacity
 BEFORE UPDATE ON `Match`
@@ -143,11 +136,11 @@ BEGIN
     END IF;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
 -- TRIGGER 4: Contract rules
 --   a) Max 2 active contracts (1 Permanent + 1 Loan)
 --   b) Loan requires an active Permanent contract at another club
--- ─────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_contract_rules$$
 CREATE TRIGGER trg_contract_rules
 BEFORE INSERT ON Contract
@@ -193,9 +186,9 @@ BEGIN
     END IF;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
 -- TRIGGER 5: One manager per club, one club per manager
--- ─────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_club_manager_unique$$
 CREATE TRIGGER trg_club_manager_unique
 BEFORE UPDATE ON Club
@@ -223,9 +216,10 @@ BEGIN
     END IF;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
+
 -- TRIGGER 6: Prevent loaned player playing for parent club
--- ─────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_no_loan_parent_play$$
 CREATE TRIGGER trg_no_loan_parent_play
 BEFORE INSERT ON Lineup
@@ -271,7 +265,9 @@ BEGIN
         END IF;
     END IF;
 END$$
--- ─────────────────────────────────────────────────────────────
+
+
+
 -- TRIGGER 7: Enforce that only eligible players can be added to a match lineup
 --   Rule:
 --     • A player can appear in Lineup(match_id, player_id) only if they have
@@ -280,7 +276,6 @@ END$$
 --   Purpose:
 --     • Prevent selecting players outside the match squad/active roster.
 --     • Enforces the "active contract required to be in squad" constraint at DB level.
--- ─────────────────────────────────────────────────────────────
 
 DROP TRIGGER IF EXISTS trg_lineup_requires_active_contract$$
 CREATE TRIGGER trg_lineup_requires_active_contract
@@ -309,9 +304,10 @@ BEGIN
     END IF;
 END$$
 
--- ─────────────────────────────────────────────────────────────
+
+
+
 -- TRIGGER 8: Enforce suspensions (Red card and 5 Yellow cards)
--- ─────────────────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_lineup_suspension_check$$
 CREATE TRIGGER trg_lineup_suspension_check
 BEFORE INSERT ON Lineup
